@@ -45,6 +45,17 @@ void init() {
   gReady = true;
 }
 
+void releaseGpu() {
+  // Screens draw through the shared UI caches; their programs and buffers die with the
+  // context, so force a rebuild and re-enter the active screen.
+  int i = (int)gActive;
+  if (gReady && i >= 0 && i < 16) {
+    if (gEntries[i].leave) gEntries[i].leave();
+    if (gEntries[i].enter) gEntries[i].enter();
+  }
+  ui::releaseGpu();
+}
+
 void reset() {
   for (int i = 0; i < 16; i++) {
     if (gEntries[i].leave) gEntries[i].leave();

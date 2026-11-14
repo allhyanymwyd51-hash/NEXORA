@@ -12,21 +12,33 @@ static const char* kWorldVS = R"(#version 300 es
 layout(location=0) in vec3 aPos;
 layout(location=1) in vec3 aNrm;
 layout(location=2) in vec4 aColor;
+layout(location=3) in vec2 aUV;
+layout(location=4) in vec4 aTile;   // x,y atlas cell  z prop flag  w texture strength
 uniform mat4 uViewProj;
 out vec3 vNormal;
 out vec4 vColor;
 out vec3 vWorld;
+out vec2 vUV;
+out vec4 vTile;
 void main() {
   vNormal = aNrm;
   vColor = aColor;
   vWorld = aPos;
+  vUV = aUV;
+  vTile = aTile;
   gl_Position = uViewProj * vec4(aPos, 1.0);
 })";
+
+// Textured world shader: 2x2 material atlas (terrain: grass/sand/rock/snow,
+// props: brick/planks/cobble/metal), tangent-space normal mapping derived from the
+// derivative of the atlas UV, height fog and a sun-driven specular term.
 static const char* kWorldFS = R"(#version 300 es
-precision mediump float;
+precision highp float;
 in vec3 vNormal;
 in vec4 vColor;
 in vec3 vWorld;
+in vec2 vUV;
+in vec4 vTile;
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;
 uniform vec3 uAmbient;
@@ -34,16 +46,51 @@ uniform vec3 uFogColor;
 uniform float uFogDensity;
 uniform vec3 uCamera;
 uniform float uFlash;
-uniform float uWaterLevel;
+uniform sampler2D uAlbedo;
+uniform sampler2D uNormalMap;
+uniform sampler2D uPropAlbedo;
+uniform sampler2D uPropNormal;
+uniform vec3 uPropTint;
+uniform float uTexScale;
 out vec4 fragColor;
+
+// Atlas sampling that never filters across a cell border: the in-tile coordinate is
+// clamped inside the [0.004, 0.996] band of its cell.
+vec2 atlasUV(vec2 worldUV, vec2 cell, float scale) {
+  vec2 c = vec2(mod(floor(cell.x + 0.5), 2.0), floor((floor(cell.y + 0.5) + 0.5) / 2.0));
+  vec2 inTile = clamp(fract(worldUV * scale), 0.004, 0.996);
+  return (c + inTile) * 0.5;
+}
+
 void main() {
   vec3 n = normalize(vNormal);
-  float ndl = max(dot(n, normalize(uSunDir)), 0.0);
-  float hemi = 0.5 + 0.5 * n.y;
-  vec3 lit = vColor.rgb * (uAmbient * (0.55 + hemi * 0.45) + uSunColor * ndl * 1.15);
-  // subtle rim light for the signature violet/cyan look
-  float rim = pow(1.0 - max(n.y, 0.0), 3.0);
-  lit += vec3(0.18, 0.22, 0.45) * rim * 0.35;
+  vec3 viewDir = normalize(uCamera - vWorld);
+  // uTexScale is 0 until the material atlases finish decoding: never sample an unbound
+  // texture, or the whole world renders black for the first frames.
+  float tex = vTile.w * step(0.0001, uTexScale);
+  vec3 albedo = vColor.rgb;
+  vec3 mapped = n;
+  if (tex > 0.001) {
+    bool prop = vTile.z > 0.5;
+    vec2 uv = atlasUV(vUV, vTile.xy, uTexScale);
+    albedo = prop ? texture(uPropAlbedo, uv).rgb : texture(uAlbedo, uv).rgb;
+    vec3 tn = (prop ? texture(uPropNormal, uv).xyz : texture(uNormalMap, uv).xyz) * 2.0 - 1.0;
+    // Screen-space tangent frame (works for boxes and heightfields without vertex tangents).
+    vec3 dpdx = dFdx(vWorld), dpdy = dFdy(vWorld);
+    vec3 T = normalize(dpdx * tn.x + dpdy * tn.y + n * tn.z + n * 1e-4);
+    mapped = normalize(mix(n, T, 0.75));
+    // multiply with the vertex tint so biome colour still drives the mood
+    albedo *= mix(vec3(1.0), vColor.rgb * 1.25, 0.75);
+    if (prop) albedo *= uPropTint;
+  }
+  float ndl = max(dot(mapped, normalize(uSunDir)), 0.0);
+  float hemi = 0.5 + 0.5 * mapped.y;
+  vec3 lit = albedo * (uAmbient * (0.55 + hemi * 0.45) + uSunColor * ndl * 1.22);
+  vec3 h = normalize(normalize(uSunDir) + viewDir);
+  float gloss = mix(20.0, 90.0, tex);
+  lit += uSunColor * pow(max(dot(mapped, h), 0.0), gloss) * mix(0.02, 0.20, tex);
+  float rim = pow(1.0 - max(mapped.y, 0.0), 3.0);
+  lit += vec3(0.18, 0.22, 0.45) * rim * 0.30;
   lit += uSunColor * uFlash * 0.6;
   float dist = length(vWorld - uCamera);
   float fog = 1.0 - exp(-dist * uFogDensity);
@@ -342,9 +389,8 @@ bool GameWorld::loadFromJson(JsonValue* root, const char* mapName) {
   if (!audioFind(ambient)) audioPlay("amb_open_plain", 0.4f);
   else audioPlay(ambient, 0.4f);
   const char* music = Json::string(Json::path(root, "audio", "music"), "exploration");
-  char musicName[48];
-  snprintf(musicName, sizeof musicName, "music_%s", music);
-  Engine::get().playMusic(musicName);
+  snprintf(m_musicTrack, sizeof m_musicTrack, "music_%s", music);
+  Engine::get().playMusic(m_musicTrack);
   NX_LOGI("world loaded: %s side=%d objects=%d quests=%d animals=%d", m_mapName, m_spec.side,
           m_objects.count, m_quests.count, m_animals.count);
   return true;
@@ -395,7 +441,7 @@ void GameWorld::buildRoads() {
 }
 
 void GameWorld::buildWater() {
-  m_waterBatch.init(sizeof(VtxShape), 3, 3, 4, GL_STATIC_DRAW);
+  m_waterBatch.init(sizeof(VtxShape), 3, 3, 4, 4, GL_STATIC_DRAW);
   m_waterBatch.vertCount = 0;
   m_waterBatch.indexCount = 0;
   if (!m_spec.waterEnabled) return;
@@ -406,7 +452,7 @@ void GameWorld::buildWater() {
 }
 
 void GameWorld::buildSky() {
-  m_skyBatch.init(sizeof(VtxShape), 3, 3, 4, GL_STATIC_DRAW);
+  m_skyBatch.init(sizeof(VtxShape), 3, 3, 4, 4, GL_STATIC_DRAW);
   m_skyBatch.vertCount = 0;
   m_skyBatch.indexCount = 0;
   // full sphere for the sky dome, very low poly
@@ -434,7 +480,7 @@ void GameWorld::buildSky() {
 // map/game screens through addTree/addBuilding helpers below so the same code path is used
 // for the editor preview and for gameplay.
 void GameWorld::buildStatic() {
-  if (!m_staticBatch.vbo) m_staticBatch.init(sizeof(VtxShape), 3, 3, 4, GL_STATIC_DRAW);
+  if (!m_staticBatch.vbo) m_staticBatch.init(sizeof(VtxShape), 3, 3, 4, 4, GL_STATIC_DRAW);
   m_staticBatch.vertCount = 0;
   m_staticBatch.indexCount = 0;
 }
@@ -625,6 +671,20 @@ void GameWorld::draw(const Mat4& viewProj, const Mat4& view, const Vec3& cameraP
   m_worldProg.set("uFogDensity", m_spec.fogDensity);
   m_worldProg.set("uCamera", cameraPos);
   m_worldProg.set("uFlash", m_flash);
+  m_worldProg.set("uTexScale", 0.20f);          // ~5 m per material tile
+  m_worldProg.set("uPropTint", Vec3(1.0f, 1.0f, 1.0f));
+  if (textures.texTerrainLoaded) {
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, textures.texTerrainAlbedo);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, textures.texTerrainNormal);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, textures.texPropAlbedo);
+    glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, textures.texPropNormal);
+    m_worldProg.set("uAlbedo", 0);
+    m_worldProg.set("uNormalMap", 1);
+    m_worldProg.set("uPropAlbedo", 2);
+    m_worldProg.set("uPropNormal", 3);
+  } else {
+    m_worldProg.set("uTexScale", 0.0f);
+  }
   m_terrain.draw(m_worldProg, viewProj);
   // static + prop batches
   if (m_staticBatch.vbo) m_staticBatch.flush(GL_TRIANGLES);

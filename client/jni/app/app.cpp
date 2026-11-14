@@ -126,12 +126,20 @@ void init() {
   api.start();
   ws::init();
   screens::init();
+  // Menu soundtrack: starts as soon as audio is up, long before the player joins a map.
+  Engine::get().playMusic("music_menu");
   if (S.token[0]) {
     refreshMe();
     go(Screen::Home);
   } else {
     go(Screen::Login);
   }
+}
+
+void releaseGpu() {
+  if (game::Gameplay::get().active()) game::Gameplay::get().leave();
+  screens::releaseGpu();
+  NX_LOGI("app: gpu resources released");
 }
 
 void shutdown() {

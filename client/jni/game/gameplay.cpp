@@ -48,7 +48,9 @@ bool Gameplay::enter(const char* mapJson, const char* mapName, const char* sessi
   // avatar details from the logged-in profile
   if (!m_player) return false;
   ws::joinMap(m_mapId, spawn.x, spawn.y, spawn.z, 0);
-  Engine::get().playMusic("music_exploration");
+  // Per-map soundtrack: the world spec carries audio.music, so a horror map does not play
+  // the exploration theme. Falls back to exploration when the spec is silent.
+  Engine::get().playMusic(world.musicTrack());
   app::toast("بدأت اللعب — 5 Miy لكل دقيقة");
   return true;
 }
@@ -283,7 +285,7 @@ void main(){
   fragColor = vec4(mix(lit, uFogColor, clamp(fog,0.0,1.0)), vC.a);
 })";
   m_charProg.build(vs, fs, "characters");
-  m_charBatch.init(sizeof(VtxShape), 3, 3, 4);
+  m_charBatch.init(sizeof(VtxShape), 3, 3, 4, 4);
 }
 
 void Gameplay::drawWorld(float dt) {

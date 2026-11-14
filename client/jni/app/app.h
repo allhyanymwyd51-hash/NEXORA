@@ -11,6 +11,8 @@ namespace app {
 // ---- engine -> app hooks ----
 void init();
 void shutdown();
+// Drops every GL handle the app owns, on the render thread, before the EGL context dies.
+void releaseGpu();
 void frame(float dt);
 void input(Touch* touches, int count, float dt);
 void textInput(const char* utf8);

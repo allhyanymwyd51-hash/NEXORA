@@ -29,10 +29,15 @@ struct Program {
 // ---------------------------------------------------------------------------
 // Shared vertex layouts
 // ---------------------------------------------------------------------------
-struct VtxShape {   // 3D unlit/vertex-lit world geometry
+struct VtxShape {   // 3D world geometry: vertex-lit, optionally textured
   float x, y, z;
   float nx, ny, nz;
   float r, g, b, a;
+  // uv = world-space position in metres (tiling independent of mesh size).
+  // tile.xy = atlas cell (0 grass/brick, 1 sand/planks, 2 rock/cobble, 3 snow/metal),
+  // tile.z = prop flag, tile.w = texture strength (0 = plain vertex colour).
+  float u, v;
+  float tileU, tileV, propFlag, texStrength;
 };
 struct VtxUI {      // 2D screen-space
   float x, y;
@@ -89,6 +94,9 @@ void pushCylinder(MeshBatcher& b, const Vec3& base, float radius, float height, 
 void pushCone(MeshBatcher& b, const Vec3& base, float radius, float height, int segs, const Color& side);
 void pushSphere(MeshBatcher& b, const Vec3& center, float radius, int rings, int segs, const Color& top, const Color& bottom);
 void pushPlaneXZ(MeshBatcher& b, float x0, float z0, float x1, float z1, float y, const Color& col);
+// Textured box: tileTop/tileSide are prop-atlas cells (0 brick, 1 planks, 2 cobble, 3 metal).
+void pushBoxTextured(MeshBatcher& b, const Vec3& center, const Vec3& half, const Color& top, const Color& side,
+                     float rotY, float shadeDown, float tileTop, float tileSide);
 void pushRing(MeshBatcher& b, const Vec3& center, float rInner, float rOuter, int segs, const Color& col, float y = 0);
 void pushDisc(MeshBatcher& b, const Vec3& center, float radius, int segs, const Color& col, float y = 0);
 // character capsule parts used by remote players + local avatar
@@ -114,7 +122,14 @@ struct Texture {
 struct TextureBank {
   GLuint white = 0, glow = 0, particles = 0, noise = 0, cloud = 0, foliage = 0, ground = 0, logo = 0;
   GLuint shopAtlas = 0;
+  // Real art from assets/textures/world (decoded by the in-tree PNG path).
+  GLuint texTerrainAlbedo = 0, texTerrainNormal = 0;
+  GLuint texPropAlbedo = 0, texPropNormal = 0, texFoliage = 0, texBark = 0;
+  int texTerrainLoaded = 0;
   void build();
+  // Decodes the material atlases. Kept separate from build() so the first frame is not
+  // blocked by ~600 ms of PNG decoding.
+  void loadWorldMaterials();
   void destroy();
 };
 extern TextureBank textures;

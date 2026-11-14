@@ -141,8 +141,13 @@ aaudio_result_t AAudioStream_setBufferSizeInFrames(AAudioStream*, int32_t);
 #define AAUDIO_SHARING_MODE_SHARED 0
 #define AAUDIO_OK 0
 
+// ANativeWindow (libandroid). A Java Surface is NOT an ANativeWindow: it has to be
+// converted with ANativeWindow_fromSurface before eglCreateWindowSurface, otherwise EGL
+// fails every time and the app shows a black screen forever.
 struct ANativeWindow;
-int32_t ANativeWindow_setBuffersGeometry(struct ANativeWindow* window, int32_t width, int32_t height, int32_t format);
+ANativeWindow* ANativeWindow_fromSurface(JNIEnv* env, jobject surface);
+void ANativeWindow_release(ANativeWindow* window);
+int32_t ANativeWindow_setBuffersGeometry(ANativeWindow* window, int32_t width, int32_t height, int32_t format);
 }
 
 namespace nx {

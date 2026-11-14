@@ -1,4 +1,5 @@
 #include "gfx.h"
+#include "png.h"
 #include "engine.h"
 
 namespace nx {
@@ -146,7 +147,47 @@ void MeshBatcher::destroy() {
 // Primitive builders
 // ---------------------------------------------------------------------------
 static VtxShape makeVtx(const Vec3& p, const Vec3& n, const Color& c) {
-  return {p.x, p.y, p.z, n.x, n.y, n.z, c.r, c.g, c.b, c.a};
+  // Untextured by default (texStrength 0) so existing geometry keeps its vertex colours;
+  // pushBoxTextured and the terrain override the tile fields.
+  return {p.x, p.y, p.z, n.x, n.y, n.z, c.r, c.g, c.b, c.a, p.x, p.z, 0.0f, 0.0f, 0.0f, 0.0f};
+}
+
+// Quad tagged with a prop-atlas cell. UVs are world metres so a wall keeps a constant
+// texel density regardless of its size.
+void pushBoxTextured(MeshBatcher& b, const Vec3& center, const Vec3& half, const Color& top, const Color& side,
+                     float rotY, float shadeDown, float tileTop, float tileSide) {
+  float cs = cosf(rotY), sn = sinf(rotY);
+  auto rot = [&](float x, float z) { return Vec3{x * cs - z * sn, 0, x * sn + z * cs}; };
+  Vec3 c[8];
+  for (int i = 0; i < 8; i++) {
+    float sx = (i & 1) ? half.x : -half.x;
+    float sy = (i & 2) ? half.y : -half.y;
+    float sz = (i & 4) ? half.z : -half.z;
+    Vec3 r = rot(sx, sz);
+    c[i] = Vec3{center.x + r.x, center.y + sy, center.z + r.z};
+  }
+  struct Face { Vec3 a, bb, cc, d, n; Color col; float tile; };
+  Face faces[6] = {
+      {c[2], c[3], c[7], c[6], Vec3{0, 1, 0}, top, tileTop},
+      {c[0], c[4], c[5], c[1], Vec3{0, -1, 0}, side * shadeDown, tileTop},
+      {c[1], c[5], c[7], c[3], rot(1, 0), side * 0.92f, tileSide},
+      {c[0], c[2], c[6], c[4], rot(-1, 0), side * 0.82f, tileSide},
+      {c[2], c[0], c[1], c[3], rot(0, 1), side, tileSide},
+      {c[6], c[7], c[5], c[4], rot(0, -1), side * 0.78f, tileSide},
+  };
+  for (const Face& f : faces) {
+    pushQuad(b, f.a, f.bb, f.cc, f.d, f.n, f.col);
+    uint32_t base = (uint32_t)(b.vertCount - 4);
+    VtxShape* v = (VtxShape*)((char*)b.verts + (size_t)base * b.vertexStride);
+    for (int i = 0; i < 4; i++) {
+      v[i].u = v[i].x;
+      v[i].v = v[i].y + v[i].z;   // unwrap around the box without per-face bookkeeping
+      v[i].tileU = f.tile;
+      v[i].tileV = f.tile;
+      v[i].propFlag = 1.0f;
+      v[i].texStrength = 1.0f;
+    }
+  }
 }
 
 void pushQuad(MeshBatcher& b, const Vec3& a, const Vec3& bb, const Vec3& c, const Vec3& d, const Vec3& n, const Color& col) {
@@ -385,14 +426,38 @@ void uploadPixelTexture(GLuint& id, int w, int h, const unsigned char* rgba, boo
 
 // Textures are generated procedurally at runtime (see TextureBank::build) so the APK carries no
 // bitmap dependencies and art stays consistent across every device.
-bool Texture::loadFromFile(const char* path, bool mipmaps, bool repeat) {
-  (void)path; (void)mipmaps; (void)repeat;
-  return false;
+static GLuint makeRGBA(int w, int h, const unsigned char* px, bool linear, bool repeat, bool mips);
+
+void Texture::destroy() {
+  if (id) { glDeleteTextures(1, &id); id = 0; }
+  width = height = 0;
 }
 
 bool Texture::loadFromMemory(const unsigned char* data, size_t size, bool mipmaps, bool linear) {
-  (void)data; (void)size; (void)mipmaps; (void)linear;
-  return false;
+  ImageData img;
+  if (!decodePng(data, size, img)) return false;
+  destroy();
+  id = makeRGBA(img.width, img.height, img.rgba, linear, false, mipmaps);
+  width = img.width;
+  height = img.height;
+  img.release();
+  return id != 0;
+}
+
+bool Texture::loadFromFile(const char* path, bool mipmaps, bool repeat) {
+  void* raw = nullptr;
+  size_t size = 0;
+  if (!readAsset(path, &raw, &size) || !raw) return false;
+  ImageData img;
+  bool ok = decodePng((const unsigned char*)raw, size, img);
+  free(raw);
+  if (!ok) return false;
+  destroy();
+  id = makeRGBA(img.width, img.height, img.rgba, true, repeat, mipmaps);
+  width = img.width;
+  height = img.height;
+  img.release();
+  return id != 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -565,8 +630,42 @@ void TextureBank::build() {
   }
 }
 
+// Decodes one shipped material atlas (PNG) into a GL texture.
+static GLuint loadAtlas(const char* path) {
+  void* raw = nullptr;
+  size_t size = 0;
+  if (!readAsset(path, &raw, &size) || !raw) {
+    NX_LOGW("atlas missing: %s", path);
+    return 0;
+  }
+  ImageData img;
+  if (!decodePng((const unsigned char*)raw, size, img)) {
+    NX_LOGW("atlas corrupt: %s", path);
+    free(raw);
+    return 0;
+  }
+  GLuint tex = makeRGBA(img.width, img.height, img.rgba, true, true, true);
+  NX_LOGI("atlas %s %dx%d", path, img.width, img.height);
+  img.release();
+  free(raw);
+  return tex;
+}
+
+void TextureBank::loadWorldMaterials() {
+  texTerrainAlbedo = loadAtlas("textures/world/terrain_albedo_atlas.png");
+  texTerrainNormal = loadAtlas("textures/world/terrain_normal_atlas.png");
+  texPropAlbedo = loadAtlas("textures/world/prop_albedo_atlas.png");
+  texPropNormal = loadAtlas("textures/world/prop_normal_atlas.png");
+  texFoliage = loadAtlas("textures/world/foliage_albedo.png");
+  texBark = loadAtlas("textures/world/bark_albedo.png");
+  texTerrainLoaded = (texTerrainAlbedo && texTerrainNormal) ? 1 : 0;
+  NX_LOGI("world materials: terrain=%d prop=%d foliage=%u", texTerrainLoaded,
+          (texPropAlbedo && texPropNormal) ? 1 : 0, texFoliage);
+}
+
 void TextureBank::destroy() {
-  GLuint ids[] = {white, glow, particles, noise, cloud, foliage, ground, logo, shopAtlas};
+  GLuint ids[] = {white, glow, particles, noise, cloud, foliage, ground, logo, shopAtlas,
+                  texTerrainAlbedo, texTerrainNormal, texPropAlbedo, texPropNormal, texFoliage, texBark};
   for (GLuint id : ids) if (id) glDeleteTextures(1, &id);
 }
 

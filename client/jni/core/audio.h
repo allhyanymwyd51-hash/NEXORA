@@ -7,12 +7,20 @@ namespace nx {
 
 struct Sound {
   char name[48] = {0};
-  short* samples = nullptr;   // interleaved stereo
+  short* samples = nullptr;   // interleaved stereo (rolling window for streamed tracks)
   int frames = 0;
   int channels = 2;
   int sampleRate = 44100;
   bool loop = false;
   float duration = 0;
+  // Streamed IMA-ADPCM track: only a couple of seconds of PCM live in memory at a time,
+  // so the 3-4 minute soundtrack costs RAM like a sound effect instead of like raw audio.
+  unsigned char* adp = nullptr;   // owned compressed bytes
+  int adpBytes = 0;
+  int adpCursor = 18;             // next block offset
+  int adpChunk = 0;               // frames per block
+  int adpTotalFrames = 0;
+  int adpEof = 0;
 };
 
 struct SoundVoice {
@@ -32,6 +40,8 @@ void audioSetFramesPerBuffer(int frames);
 int audioSampleRate();
 
 Sound* audioLoadWav(const char* assetPath, const char* alias, bool loop);
+// Streamed music: IMA-ADPCM (.adp) decoded on demand, ~4:1 smaller than 16-bit PCM.
+Sound* audioLoadAdpcm(const char* assetPath, const char* alias, bool loop);
 // Loads the shipped sound bank (assets/audio/*.wav) into memory.
 int audioLoadBank();
 Sound* audioFind(const char* name);

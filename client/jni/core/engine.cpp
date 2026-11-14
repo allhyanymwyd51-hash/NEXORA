@@ -153,7 +153,7 @@ bool Engine::createEgl() {
   if (!m_surface || !m_window) return false;
   m_eglSurface = eglCreateWindowSurface(m_display, m_config, (EGLNativeWindowType)m_window, nullptr);
   if (m_eglSurface == EGL_NO_SURFACE) {
-    NX_LOGE("eglCreateWindowSurface failed");
+    NX_LOGE("eglCreateWindowSurface failed (err 0x%x, window=%p)", (unsigned)eglGetError(), (void*)m_window);
     return false;
   }
   if (!m_context) {
@@ -192,15 +192,28 @@ void Engine::destroyEgl() {
 // ---------------------------------------------------------------------------
 // Surface lifecycle
 // ---------------------------------------------------------------------------
+// A Java Surface is not an ANativeWindow. Handing the jobject straight to
+// eglCreateWindowSurface makes every EGL surface creation fail, which is the classic
+// "app installs, launches, stays black" bug. Convert, and release when done.
+static ANativeWindow* windowFrom(JNIEnv* env, jobject surface) {
+  if (!surface) return nullptr;
+  jni.env = env;
+  jni.attach();
+  return ANativeWindow_fromSurface(env, surface);
+}
+
 void Engine::onSurfaceCreated(jobject surface) {
+  if (m_window) { ANativeWindow_release(m_window); m_window = nullptr; }
   m_surface = surface;
-  m_window = (ANativeWindow*)surface;
+  m_window = windowFrom(jni.env, surface);
+  NX_LOGI("surface created: window=%p", (void*)m_window);
   if (!m_running) startRenderThread();
 }
 
 void Engine::onSurfaceChanged(jobject surface, int w, int h) {
   m_surface = surface;
-  m_window = (ANativeWindow*)surface;
+  if (!m_window) m_window = windowFrom(jni.env, surface);
+  if (m_window) ANativeWindow_setBuffersGeometry(m_window, w, h, 1 /* RGBA_8888 */);
   m_width = (float)w;
   m_height = (float)h;
   m_safeTop = m_safeBottom = m_safeLeft = m_safeRight = 0;
@@ -211,12 +224,12 @@ void Engine::onSurfaceChanged(jobject surface, int w, int h) {
 
 void Engine::onSurfaceDestroyed() {
   m_paused = true;
-  if (m_context) {
-    // GPU objects die with the surface; the app rebuilds them on resume.
-    destroyEgl();
-  }
+  // GPU objects belong to the dying context: drop them on the render thread's behalf
+  // before the surface goes, or the next surface uploads into dead buffer names.
+  m_needGpuInit = 1;
+  if (m_context) destroyEgl();
   m_surface = nullptr;
-  m_window = nullptr;
+  if (m_window) { ANativeWindow_release(m_window); m_window = nullptr; }
 }
 
 void Engine::onPause() { m_paused = true; }
@@ -233,16 +246,16 @@ void Engine::startRenderThread() {
 
 void Engine::stopRenderThread() { m_running = false; }
 
-void Engine::renderLoop() {
-  if (!createEgl()) {
-    NX_LOGE("failed to create EGL context on render thread");
-    return;
-  }
-  // GPU-side resources
+// GPU one-time setup. Separate from the loop because a SurfaceView can be destroyed and
+// recreated (background, rotation, split screen): the EGL context dies with it and every
+// texture/buffer/program has to be rebuilt on the new context.
+void Engine::initGpuResources() {
   textures.build();
+  // Defer the heavy atlas decode a few frames: the launcher wants the first frame now.
+  m_materialsLoaded = 0;
+  m_materialFrames = 0;
   m_sprites.init(0);
   m_uiSprites.init(0);
-  // load fonts from the APK assets
   if (!m_fontRegular.loadFromAsset("fonts/Cairo-400.ttf")) NX_LOGE("regular font missing");
   if (!m_fontSemi.loadFromAsset("fonts/Cairo-600.ttf")) NX_LOGE("semibold font missing");
   if (!m_fontBold.loadFromAsset("fonts/Cairo-700.ttf")) NX_LOGE("bold font missing");
@@ -250,6 +263,33 @@ void Engine::renderLoop() {
   audioLoadBank();
   detectDeviceTier();
   app::init();
+  m_gpuReady = 1;
+  m_needGpuInit = 0;
+}
+
+void Engine::destroyGpuResources() {
+  if (!m_gpuReady) return;
+  app::releaseGpu();
+  m_sprites.destroy();
+  m_uiSprites.destroy();
+  m_fontRegular.destroy();
+  m_fontSemi.destroy();
+  m_fontBold.destroy();
+  textures.destroy();
+  m_gpuReady = 0;
+}
+
+void Engine::renderLoop() {
+  // The surface may not be usable yet when the thread starts; retrying is correct here, and
+  // tearing the thread down would leave a permanently black screen.
+  int attempts = 0;
+  while (m_running && !createEgl()) {
+    if (++attempts % 40 == 1) NX_LOGW("EGL not ready yet (attempt %d)", attempts);
+    usleep(50000);
+  }
+  if (!m_running) return;
+  NX_LOGI("EGL ready %dx%d", (int)m_width, (int)m_height);
+  initGpuResources();
 
   double last = nowSeconds();
   double fpsAccum = 0;
@@ -278,6 +318,21 @@ void Engine::renderLoop() {
       fpsFrames = 0;
     }
     handleInput(dt);
+    // Surface came back after being destroyed: rebuild EGL and every GL object.
+    if (m_needGpuInit && m_window) {
+      destroyGpuResources();
+      if (createEgl()) {
+        initGpuResources();
+      } else {
+        usleep(50000);
+        continue;
+      }
+    }
+    // Stream the world material atlases in a few frames after the first present.
+    if (!m_materialsLoaded && ++m_materialFrames > 3) {
+      textures.loadWorldMaterials();
+      m_materialsLoaded = 1;
+    }
     glViewport(0, 0, (GLsizei)m_width, (GLsizei)m_height);
     app::frame((float)dt);
     eglSwapBuffers(m_display, m_eglSurface);

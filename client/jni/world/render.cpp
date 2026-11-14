@@ -85,7 +85,13 @@ static void addBuilding(MeshBatcher& b, const Vec3& pos, float w, float d, float
     trim = Color::hex(0x3A2F55);
   }
   Vec3 center(pos.x, pos.y + h * 0.5f, pos.z);
-  pushBox(b, center, Vec3(w * 0.5f, h * 0.5f, d * 0.5f), wall * 1.06f, wall * 0.86f, rot, 0.6f);
+  // Real cladding: brick for the classic styles, planks for rural/alpine, metal panels for
+  // modern/arena/landmark towers.
+  float tile = 0.0f;
+  if (!strcmp(style, "modern") || !strcmp(style, "arena") || !strcmp(style, "landmark")) tile = 3.0f;
+  else if (!strcmp(style, "rural") || !strcmp(style, "alpine")) tile = 1.0f;
+  pushBoxTextured(b, center, Vec3(w * 0.5f, h * 0.5f, d * 0.5f), wall * 1.06f, wall * 0.86f, rot, 0.6f,
+                  tile, tile);
   // roof
   if (!strcmp(roof, "gable")) {
     Color roofC = Color::hex(0x7A3B33);
@@ -143,6 +149,22 @@ static void addBuilding(MeshBatcher& b, const Vec3& pos, float w, float d, float
 // ---------------------------------------------------------------------------
 // roads (baked as thin quads following the spline, draped on the terrain)
 // ---------------------------------------------------------------------------
+// Tagged quad: prop-atlas cell + world-space UVs (roads are paved with the cobble cell).
+static void pushQuadTex(MeshBatcher& b, const Vec3& a, const Vec3& bb, const Vec3& c, const Vec3& d,
+                        const Vec3& n, const Color& col, float tile) {
+  pushQuad(b, a, bb, c, d, n, col);
+  uint32_t base = (uint32_t)(b.vertCount - 4);
+  VtxShape* v = (VtxShape*)((char*)b.verts + (size_t)base * b.vertexStride);
+  for (int i = 0; i < 4; i++) {
+    v[i].u = v[i].x;
+    v[i].v = v[i].z;
+    v[i].tileU = tile;
+    v[i].tileV = tile;
+    v[i].propFlag = 1.0f;
+    v[i].texStrength = 1.0f;
+  }
+}
+
 static void addRoad(MeshBatcher& b, const Terrain& t, const Terrain::Road& road) {
   Color asphalt = road.asphalt ? Color::hex(0x3A3A42) : Color::hex(0x8A7A5E);
   Color line = road.asphalt ? Color::hex(0xE8D48A) : asphalt * 1.1f;
@@ -165,7 +187,7 @@ static void addRoad(MeshBatcher& b, const Terrain& t, const Terrain::Road& road)
       v01.y = t.heightAt(v01.x, v01.z) + 0.06f;
       v10.y = t.heightAt(v10.x, v10.z) + 0.06f;
       v11.y = t.heightAt(v11.x, v11.z) + 0.06f;
-      pushQuad(b, v00, v01, v11, v10, Vec3(0, 1, 0), asphalt);
+      pushQuadTex(b, v00, v01, v11, v10, Vec3(0, 1, 0), asphalt, 2.0f);
       if (road.asphalt) {
         Vec3 c0(p0.x - n.x * 0.16f, v00.y + 0.02f, p0.y - n.y * 0.16f);
         Vec3 c1(p0.x + n.x * 0.16f, v01.y + 0.02f, p0.y + n.y * 0.16f);

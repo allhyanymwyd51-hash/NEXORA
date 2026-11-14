@@ -201,7 +201,20 @@ void Terrain::buildMesh(int detail) {
         Color rock = Color::hex(0x6A6A72);
         c = Color::lerp(c, rock, clampf((slope - 0.35f) * 2.2f, 0, 0.85f));
       }
-      v[iz * grid + ix] = {x, h, z, n.x, n.y, n.z, c.r, c.g, c.b, 1.0f};
+      // Dominant material of this vertex -> atlas cell (0 grass, 1 sand, 2 rock, 3 snow).
+      // The tint in the vertex colour keeps the transition smooth.
+      float cell = 0.0f;
+      if (spec.waterEnabled && h < spec.waterLevel + 2.2f) cell = 1.0f;
+      if (h > spec.snowLine) cell = 3.0f;
+      if (slope > 0.30f && h > spec.waterLevel + 1.5f) cell = 2.0f;
+      VtxShape& out = v[iz * grid + ix];
+      out.x = x; out.y = h; out.z = z;
+      out.nx = n.x; out.ny = n.y; out.nz = n.z;
+      out.r = c.r; out.g = c.g; out.b = c.b; out.a = 1.0f;
+      out.u = x; out.v = z;                // world metres (shader scales)
+      out.tileU = cell; out.tileV = cell;
+      out.propFlag = 0.0f;
+      out.texStrength = 1.0f;
     }
   }
   int quads = (grid - 1) * (grid - 1);
@@ -241,10 +254,16 @@ void Terrain::draw(Program& prog, const Mat4& viewProj) {
   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)12);
   glEnableVertexAttribArray(2);
   glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, stride, (void*)24);
+  glEnableVertexAttribArray(3);
+  glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, stride, (void*)(intptr_t)40);
+  glEnableVertexAttribArray(4);
+  glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, stride, (void*)(intptr_t)48);
   glDrawElements(GL_TRIANGLES, m_indexCount, GL_UNSIGNED_INT, nullptr);
   glDisableVertexAttribArray(0);
   glDisableVertexAttribArray(1);
   glDisableVertexAttribArray(2);
+  glDisableVertexAttribArray(3);
+  glDisableVertexAttribArray(4);
   (void)viewProj;
 }
 

@@ -7,6 +7,9 @@
 namespace nx {
 namespace ui {
 
+// Drops cached GL programs/buffers after the EGL context is recreated.
+void releaseGpu();
+
 // ---- design tokens (dark futuristic identity: navy + violet + cyan lights) ----
 struct Theme {
   Color bg0 = Color::hex(0x050814);

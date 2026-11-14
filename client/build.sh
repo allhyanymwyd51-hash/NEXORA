@@ -227,11 +227,10 @@ if [ -d "$STAGE/lib" ]; then
   ( cd "$STAGE" && zip -q -X -r base.apk lib ) || die "failed to add native libs"
 fi
 
-# assets/ (shaders, fonts, textures, audio). Stored uncompressed-friendly: textures and audio
-# are already compressed formats, shaders/fonts compress well.
+# assets/ (shaders, fonts, textures, audio). Textures and the streamed .adp music are already
+# compressed, so they are stored as-is; WAV effects and shaders deflate well.
 if [ -d assets ]; then
-  ( cd . && zip -q -X -r "$STAGE/base.apk" assets \
-      -x 'assets/audio/*.wav' ) || die "failed to add assets"
+  ( cd . && zip -q -X -r "$STAGE/base.apk" assets ) || die "failed to add assets"
 fi
 
 "$BUILD_TOOLS/zipalign" -c -v 4 "$STAGE/base.apk" >/dev/null 2>&1 || true
@@ -241,6 +240,8 @@ mv "$STAGE/base.apk" "$APK_UNSIGNED"
 # 6. Align + sign
 # ---------------------------------------------------------------------------
 say "zipalign"
+# 16 KB alignment: -p keeps .so pages uncompressed and page-aligned, which Android 15
+# requires for 16 KB page devices (and is harmless on 4 KB ones).
 "$ZIPALIGN" -p -f 4 "$APK_UNSIGNED" "$APK_ALIGNED" || die "zipalign failed"
 
 KEYSTORE="${NEXORA_KEYSTORE:-$ROOT/build/keys/nexora-release.jks}"

@@ -27,6 +27,7 @@ struct WorldSpec {
   float terrainRoughness = 1.0f;
   float mountainAmp = 40.0f;
   float baseHeight = 4.0f;
+  float snowLine = 90.0f;   // above this height the terrain uses the snow material
   bool fillOcean = false;
   int seed = 1;
   char weather[24] = "clear";
@@ -171,6 +172,9 @@ class GameWorld {
   float flashIntensity() const { return m_flash; }
   void triggerFlash() { m_flash = 1.0f; }
   const char* mapName() const { return m_mapName; }
+  // Soundtrack name for this map ("music_exploration", ...), chosen from the map's
+  // audio.music field at load time.
+  const char* musicTrack() const { return m_musicTrack; }
   void setRoot(void* root) { m_root = root; }
 
  private:
@@ -184,6 +188,7 @@ class GameWorld {
   WorldSpec m_spec;
   bool m_loaded = false;
   char m_mapName[80] = {0};
+  char m_musicTrack[48] = "music_exploration";
   void* m_root = nullptr;
 
   Array<WorldObject> m_objects;

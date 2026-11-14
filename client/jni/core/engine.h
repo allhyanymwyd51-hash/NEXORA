@@ -108,6 +108,8 @@ class Engine {
  private:
   Engine() {}
   void renderLoop();
+  void initGpuResources();
+  void destroyGpuResources();
   bool createEgl();
   void destroyEgl();
   void handleInput(double dt);
@@ -124,6 +126,10 @@ class Engine {
   double m_time = 0;
   int m_fps = 60;
   float m_frameMs = 16.7f;
+  int m_materialsLoaded = 0;
+  int m_materialFrames = 0;
+  volatile int m_gpuReady = 0;
+  volatile int m_needGpuInit = 0;
   QualitySettings m_quality;
   Font m_fontRegular, m_fontSemi, m_fontBold;
   SpriteBatch m_sprites;

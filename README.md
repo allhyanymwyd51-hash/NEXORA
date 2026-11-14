@@ -37,12 +37,41 @@ source /home/user/env.sh      # JAVA_HOME, ANDROID_SDK, BUILD_TOOLS, ZIG
 cd client && ZIG=$ZIG ./build.sh
 ```
 
-Output: `client/build/nexora-1.0.0.apk`, signed v2+v3 with `build/keys/nexora-release.jks`.
+Output: `client/build/nexora-1.0.0.apk`, signed v1+v2+v3 with `build/keys/nexora-release.jks`,
+native library stored uncompressed and 16 KB page-aligned (Android 15 requirement).
+
+### Rebuilding just the native half
+
+When only `jni/` changed there is no need to redo the Java/dex side (and no JDK is required):
+
+```bash
+# zig cc for arm64 against generated import stubs -> build/so/arm64-v8a/libnexora.so
+bash tools/build_native.sh
+# swap it into the existing APK, re-align, re-sign (pure JS, no apksigner)
+NODE_PATH=$(npm root -g) node tools/pack_apk.mjs client/build/nexora-1.0.0.apk /tmp/u.apk \
+    client/build/so/arm64-v8a/libnexora.so client/assets
+NODE_PATH=$(npm root -g) node tools/sign_apk.mjs /tmp/u.apk out.apk \
+    build/keys/nexora.key.pem build/keys/nexora.cert.pem
+python3 tools/check_apk.py out.apk      # launch-path pre-flight, no device needed
+```
+
+### Art pipeline
+
+The shipped content is real, authored data — not padding, and every file is opened by the engine:
+
+| Asset | Produced by | Used by |
+| --- | --- | --- |
+| `assets/textures/world/*.png` (1K albedo + normal per material, 2K atlases) | `tools/prep_materials.py` from the scans in `tools/assets_src/` | terrain shader (grass/sand/rock/snow) and building cladding (brick/planks/cobble/metal) |
+| `assets/audio/music/*.adp` (9 composed tracks, 90–240 s each) | `tools/gen_music.py` | streamed IMA-ADPCM soundtrack, decoded on demand |
+| `assets/audio/*.wav` (46 effects/ambiences) | `server/scripts/gen-audio.js` | gameplay SFX |
+| `assets/fonts/Cairo-*.ttf` | SIL OFL | Arabic shaping |
 
 ## Tests
 
 ```bash
-cd server && node --test 'test/*.test.js'
+cd server && node --test 'test/*.test.js'   # 30 backend tests
+python3 tools/test_assets.py                # codec + material asset tests
+python3 tools/check_apk.py client/build/nexora-1.0.0.apk   # launch-path pre-flight
 ```
 
 30 tests: the full player journey (register → create → NEX AI generate → publish → join →
@@ -53,9 +82,10 @@ WebSocket framing, client-contract regressions, and the AI edit engine.
 
 - **Arabic first, RTL native.** Every string exists in Arabic and English; the layout mirrors,
   text is shaped with HarfBuzz-free Arabic joining over Cairo (SIL OFL, bundled).
-- **No downloaded assets.** All art is procedural (shaders + geometry), the UI font is the only
-  binary asset, and all 46 audio clips are synthesised by `server/scripts/gen-audio.js`
-  (22.05 kHz mono, so the whole bank is ~500 KB).
+- **Self-contained content.** No NDK, no third-party engine, no runtime downloads: PNG and
+  IMA-ADPCM decoding live in `jni/core` (`png.cpp`, `inflate.cpp`, the ADPCM path in `audio.cpp`),
+  the artwork is authored into `tools/assets_src/` and packed by `tools/prep_materials.py`, and the
+  soundtrack is composed by `tools/gen_music.py`.
 - **No fabricated state.** Empty lists say they are empty, failures say what failed, and no screen
   shows a number the server did not send.
 
@@ -70,6 +100,7 @@ server/src/core     db, auth, economy, moderation, realtime
 server/src/api      route modules (auth, maps, ai, shop, social, admin)
 server/src/ai       deterministic world generator + modification engine
 tools/font-preview  host-side renderer to check Arabic shaping without a device
+tools/              art/audio pipeline, APK packer + signer, launch-path checks
 ```
 
 ## Pointing the client at a server

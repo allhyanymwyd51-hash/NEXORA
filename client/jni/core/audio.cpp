@@ -117,6 +117,95 @@ Sound* audioLoadWav(const char* assetPath, const char* alias, bool loop) {
   return s;
 }
 
+
+// ---------------------------------------------------------------------------
+// Streamed music: IMA-ADPCM (.adp). See tools/adp.py for the encoder; the block
+// layout is duplicated in one place only so the two cannot drift silently.
+// ---------------------------------------------------------------------------
+static const int kAdpStep[89] = {
+    7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66,
+    73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408,
+    449, 494, 544, 598, 658, 724, 796, 876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878,
+    2066, 2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845,
+    8630, 9493, 10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086,
+    29794, 32767};
+static const int kAdpIndex[16] = {-1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8};
+
+static inline int adpNibble(int nib, int& pred, int& idx) {
+  int step = kAdpStep[idx];
+  int d = step >> 3;
+  if (nib & 1) d += step >> 2;
+  if (nib & 2) d += step >> 1;
+  if (nib & 4) d += step;
+  pred = (nib & 8) ? pred - d : pred + d;
+  if (pred > 32767) pred = 32767;
+  if (pred < -32768) pred = -32768;
+  idx += kAdpIndex[nib];
+  if (idx < 0) idx = 0;
+  if (idx > 88) idx = 88;
+  return pred;
+}
+
+// Decodes the next block into the rolling window (which holds lastBlock + current).
+static bool adpNextBlock(Sound* s) {
+  if (s->adpEof || !s->adp) return false;
+  int chunk = s->adpChunk, ch = 2;
+  int bytes = ch * 3 + ch * (chunk / 2);
+  if (s->adpCursor + bytes > s->adpBytes) { s->adpEof = 1; return false; }
+  const unsigned char* src = s->adp + s->adpCursor;
+  s->adpCursor += bytes;
+  // shift the previous block out, keep nothing (voices read [0,chunk) then we swap)
+  short* dst = s->samples;
+  for (int c = 0; c < ch; c++) {
+    int pred = (short)(src[c * 3] | (src[c * 3 + 1] << 8));
+    int idx = src[c * 3 + 2];
+    if (idx > 88) idx = 88;
+    const unsigned char* nib = src + ch * 3 + c * (chunk / 2);
+    dst[c] = (short)pred;
+    if (ch == 1) dst[1] = (short)pred;
+    for (int f = 1; f < chunk; f++) {
+      int n = f - 1;
+      int byte = nib[n >> 1];
+      int v = (n & 1) ? (byte & 0x0f) : (byte >> 4);
+      int p = adpNibble(v, pred, idx);
+      dst[f * 2 + c] = (short)p;
+      if (ch == 1) dst[f * 2 + 1] = (short)p;
+    }
+  }
+  s->frames = chunk;
+  return true;
+}
+
+Sound* audioLoadAdpcm(const char* assetPath, const char* alias, bool loop) {
+  if (!g) return nullptr;
+  if (g->soundCount >= kMaxSounds) return nullptr;
+  void* data = nullptr;
+  size_t size = 0;
+  if (!readAsset(assetPath, &data, &size) || !data || size < 18) return nullptr;
+  const unsigned char* p = (const unsigned char*)data;
+  if (memcmp(p, "NXAD", 4) != 0) { NX_LOGW("not adpcm: %s", alias); return nullptr; }
+  int ch = p[6] | (p[7] << 8);
+  int chunk = p[16] | (p[17] << 8);
+  int total = (int)(p[12] | (p[13] << 8) | (p[14] << 16) | ((uint32_t)p[15] << 24));
+  if (ch != 2 || chunk < 2 || chunk > 4096) { NX_LOGW("bad adpcm header: %s", alias); return nullptr; }
+  Sound* s = new Sound();
+  strncpy(s->name, alias, sizeof s->name - 1);
+  s->adp = (unsigned char*)data;
+  s->adpBytes = (int)size;
+  s->adpCursor = 18;
+  s->adpChunk = chunk;
+  s->adpTotalFrames = total;
+  s->sampleRate = g->sampleRate;
+  s->loop = loop;
+  s->duration = (float)total / 44100.0f;
+  s->samples = (short*)malloc((size_t)chunk * 2 * sizeof(short));
+  if (!s->samples) { free(data); delete s; return nullptr; }
+  adpNextBlock(s);
+  g->sounds[g->soundCount++] = s;
+  NX_LOGI("music stream: %s %d frames (%.1fs, %.1f MB)", alias, total, s->duration, size / 1048576.0f);
+  return s;
+}
+
 // ---------------------------------------------------------------------------
 // Bank: every clip the game can play, with its loop flag. Kept as a table so a
 // missing asset is a single warning line instead of a silent dead button.
@@ -139,7 +228,8 @@ static const BankEntry kBank[] = {
     {"amb_forest_day", true}, {"amb_beach_waves", true}, {"amb_city_hum", true}, {"amb_open_plain", true},
     {"amb_snow_wind", true}, {"amb_volcano_loop", true},
     {"music_exploration", true}, {"music_social_lofi", true}, {"music_race_energy", true},
-    {"music_combat_tense", true}, {"music_horror_theme", true},
+    {"music_combat_tense", true}, {"music_horror_theme", true}, {"music_menu", true},
+    {"music_victory", true}, {"music_city", true}, {"music_storm", true},
     {"ai_tick", false}, {"ai_complete", false},
 };
 
@@ -149,7 +239,14 @@ int audioLoadBank() {
   for (const BankEntry& e : kBank) {
     if (audioFind(e.name)) continue;
     char path[128];
-    snprintf(path, sizeof path, "audio/%s.wav", e.name);
+    // Music ships as compressed streams (audio/music/<name>.adp); everything else is WAV.
+    if (strncmp(e.name, "music_", 6) == 0) {
+      snprintf(path, sizeof path, "audio/music/%s.adp", e.name + 6);
+      if (audioLoadAdpcm(path, e.name, e.loop)) { loaded++; continue; }
+      snprintf(path, sizeof path, "audio/%s.wav", e.name);
+    } else {
+      snprintf(path, sizeof path, "audio/%s.wav", e.name);
+    }
     if (audioLoadWav(path, e.name, e.loop)) loaded++;
     else NX_LOGW("sound missing: %s", path);
   }
@@ -194,7 +291,16 @@ static void mixInto(short* out, int frames) {
     float gain = voice.gainL * g->musicGain;
     for (int i = 0; i < n; i++) {
       if (voice.cursor >= s->frames) {
-        if (voice.loop) voice.cursor = 0;
+        if (s->adp) {
+          // Streamed track: pull the next block; wrap to the start when it ends.
+          if (!adpNextBlock(s)) {
+            if (!voice.loop) { voice.active = false; break; }
+            s->adpCursor = 18;
+            s->adpEof = 0;
+            if (!adpNextBlock(s)) { voice.active = false; break; }
+          }
+          voice.cursor = 0;
+        } else if (voice.loop) voice.cursor = 0;
         else { voice.active = false; break; }
       }
       accL[i] += s->samples[voice.cursor * 2] * (1.0f / 32768.0f) * gain;

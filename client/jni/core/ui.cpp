@@ -112,9 +112,19 @@ void ensureInit() {
   if (gInit) return;
   gSolidProg.build(kSolidVS, kSolidFS, "ui_solid");
   gGlowProg.build(kGlowVS, kGlowFS, "ui_glow");
-  gSolid.init(sizeof(VtxShape), 3, 3, 4);
-  gGlow.init(sizeof(VtxShape), 3, 3, 4);
+  gSolid.init(sizeof(VtxShape), 3, 3, 4, 4);
+  gGlow.init(sizeof(VtxShape), 3, 3, 4, 4);
   gInit = true;
+}
+
+// Drops the UI GL objects so the next draw rebuilds them on a fresh context.
+void releaseGpu() {
+  if (!gInit) return;
+  gSolidProg.destroy();
+  gGlowProg.destroy();
+  gSolid.destroy();
+  gGlow.destroy();
+  gInit = false;
 }
 
 // ---------------------------------------------------------------------------

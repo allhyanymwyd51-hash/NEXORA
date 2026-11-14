@@ -10,6 +10,8 @@ namespace app {
 namespace screens {
 
 void init();
+// Rebuild per-screen GL state after the surface (and its context) was recreated.
+void releaseGpu();
 void reset();
 void enter(Screen s);
 void leave(Screen s);
