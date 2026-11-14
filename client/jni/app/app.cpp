@@ -48,7 +48,7 @@ void loadLocalSettings() {
   if (j.parse((const char*)data)) {
     JsonValue* r = j.root();
     snprintf(S.token, sizeof S.token, "%s", Json::string(Json::get(r, "token")));
-    S.userId = Json::integer(Json::get(r, "userId"));
+    snprintf(S.uid, sizeof S.uid, "%s", Json::string(Json::get(r, "uid")));
     snprintf(S.username, sizeof S.username, "%s", Json::string(Json::get(r, "username")));
     S.language = Json::integer(Json::get(r, "language"), 0);
     S.quality = Json::integer(Json::get(r, "quality"), 4);
@@ -66,9 +66,9 @@ void saveLocalSettings() {
   if (!gSessionPath[0]) snprintf(gSessionPath, sizeof gSessionPath, "%s/nexora.json", filesDir());
   char body[1600];
   snprintf(body, sizeof body,
-           "{\"token\":\"%s\",\"userId\":%d,\"uid\":\"%s\",\"username\":\"%s\",\"language\":%d,\"quality\":%d,"
+           "{\"token\":\"%s\",\"uid\":\"%s\",\"username\":\"%s\",\"language\":%d,\"quality\":%d,"
            "\"music\":%s,\"sfx\":%s,\"voice\":%s,\"haptics\":%s,\"musicVolume\":%.3f,\"sfxVolume\":%.3f}",
-           S.token, S.userId, S.uid, S.username, S.language, S.quality, S.music ? "true" : "false",
+           S.token, S.uid, S.username, S.language, S.quality, S.music ? "true" : "false",
            S.sfx ? "true" : "false", S.voice ? "true" : "false", S.haptics ? "true" : "false",
            (double)S.musicVolume, (double)S.sfxVolume);
   writeFile(gSessionPath, body, strlen(body));
@@ -141,12 +141,13 @@ void shutdown() {
 
 void refreshMe() { api.call(NET_ME, "GET", "/api/auth/me"); }
 
-void enterMap(int mapId) {
-  if (mapId <= 0) return;
+void enterMap(const char* mapId) {
+  // map ids are opaque server strings (map_xxxxxxxxxxxx), never numbers
+  if (!mapId || !*mapId) return;
   setBusy(true, "جاري تحميل العالم…");
-  char path[64];
-  snprintf(path, sizeof path, "/api/maps/%d/join", mapId);
-  api.call(NET_MAP_JOIN, "POST", path, "{}", mapId);
+  char path[80];
+  snprintf(path, sizeof path, "/api/maps/%s/join", mapId);
+  api.call(NET_MAP_JOIN, "POST", path, "{}");
 }
 
 void leaveGameplay() {
@@ -165,6 +166,7 @@ void signOut() {
   ws::shutdown();
   S.token[0] = 0;
   S.userId = 0;
+  S.uid[0] = 0;
   S.username[0] = 0;
   S.role = Role::Player;
   S.miy = 0;
@@ -186,7 +188,6 @@ void applyLogin(JsonValue* root) {
   snprintf(S.token, sizeof S.token, "%s", Json::string(token));
   snprintf(api.token, sizeof api.token, "%s", S.token);
   snprintf(S.uid, sizeof S.uid, "%s", Json::string(Json::get(user, "id")));
-  S.userId = Json::integer(Json::get(user, "numericId"), 0);
   snprintf(S.username, sizeof S.username, "%s", Json::string(Json::get(user, "username")));
   api.userId = S.userId;
   snprintf(api.username, sizeof api.username, "%s", S.username);
@@ -203,6 +204,8 @@ void applyLogin(JsonValue* root) {
 void applyMe(JsonValue* root) {
   JsonValue* user = Json::get(root, "user");
   if (!user) return;
+  // /auth/me repeats identity, so a restored session regains its id here
+  snprintf(S.uid, sizeof S.uid, "%s", Json::string(Json::get(user, "id"), S.uid));
   snprintf(S.username, sizeof S.username, "%s", Json::string(Json::get(user, "username"), S.username));
   S.miy = Json::integer(Json::get(user, "miy"), S.miy);
   snprintf(S.bio, sizeof S.bio, "%s", Json::string(Json::get(user, "bio")));

@@ -63,7 +63,8 @@ void applyDetail(JsonValue* root) {
   gMap.liked = Json::boolean(Json::get(m, "liked"));
   gMap.favorite = Json::boolean(Json::get(m, "favorite"));
   gMap.isAi = Json::boolean(Json::get(m, "isAi"));
-  gMap.mine = Json::integer(Json::get(owner, "userId"), Json::integer(Json::get(m, "ownerId"), 0)) == S.userId;
+  const char* ownerId = Json::string(Json::get(owner, "id"));
+  gMap.mine = ownerId[0] && S.uid[0] && strcmp(ownerId, S.uid) == 0;
 
   JsonValue* world = Json::get(m, "world");
   gMap.hasWorld = world && Json::get(world, "format") != nullptr;
@@ -180,7 +181,7 @@ void draw(float dt) {
                                                                              : tr("العب الآن", "Play now");
   if (ui::button("md_play", play, playLabel, true, canPlay && gMap.hasWorld, 15, "play").clicked) {
     audioPlay("ui_confirm", 0.6f);
-    enterMap(atoi(gMap.id + 4));
+    enterMap(gMap.id);
   }
   Rect edit(pad + innerW * 0.62f + ui::dp(8), y, innerW * 0.38f - ui::dp(8), ui::dp(50));
   if (gMap.mine) {
@@ -192,7 +193,7 @@ void draw(float dt) {
                    "heart")
             .clicked) {
       char path[64];
-      snprintf(path, sizeof path, "/api/maps/%d/favorite", atoi(gMap.id + 4));
+      snprintf(path, sizeof path, "/api/maps/%s/favorite", gMap.id);
       api.call(NET_MAP_FAVORITE, "POST", path, "{}", 31);
     }
   }
@@ -286,14 +287,14 @@ void draw(float dt) {
                    !published, gMap.hasWorld, 13.5f)
             .clicked) {
       char path[80];
-      snprintf(path, sizeof path, "/api/maps/%d/%s", atoi(gMap.id + 4), published ? "unpublish" : "publish");
+      snprintf(path, sizeof path, "/api/maps/%s/%s", gMap.id, published ? "unpublish" : "publish");
       api.call(published ? NET_MAP_UPDATE : NET_MAP_PUBLISH, "POST", path, "{}", 32);
     }
     y += ui::dp(52);
     Rect del(pad, y, innerW, ui::dp(46));
     if (ui::button("md_delete", del, tr("حذف الماب", "Delete map"), false, true, 13).clicked) {
       char path[80];
-      snprintf(path, sizeof path, "/api/maps/%d", atoi(gMap.id + 4));
+      snprintf(path, sizeof path, "/api/maps/%s", gMap.id);
       api.call(NET_MAP_DELETE, "DELETE", path, nullptr, 33);
     }
     y += ui::dp(56);

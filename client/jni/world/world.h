@@ -124,7 +124,8 @@ struct QuestState {
 };
 
 struct RemotePlayer {
-  int userId = 0;
+  int userId = 0;             // network key (string id hashed into an int)
+  char uid[40] = {0};         // stable server id ("usr_…")
   char username[40] = {0};
   Vec3 pos;
   Vec3 target;
@@ -160,10 +161,11 @@ class GameWorld {
   float waterLevel() const { return m_spec.waterLevel; }
   bool inWater(const Vec3& p) const;
   RemotePlayer* findPlayer(int userId);
+  RemotePlayer* findByUid(const char* uid);
   void setSpawnsFromJson(JsonValue* root);
   MeshBatcher& staticBatcher() { return m_staticBatch; }
   MeshBatcher& propBatcher() { return m_propBatch; }
-  void upsertPlayer(int userId, const char* username, const Vec3& pos, float heading, bool moving);
+  void upsertPlayer(const char* uid, const char* username, const Vec3& pos, float heading, bool moving);
   void removePlayer(int userId);
   // lightning flash + rain intensity for the renderer
   float flashIntensity() const { return m_flash; }

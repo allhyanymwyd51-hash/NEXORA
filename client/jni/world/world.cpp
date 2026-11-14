@@ -502,11 +502,30 @@ RemotePlayer* GameWorld::findPlayer(int userId) {
   return nullptr;
 }
 
-void GameWorld::upsertPlayer(int userId, const char* username, const Vec3& pos, float heading, bool moving) {
-  RemotePlayer* p = findPlayer(userId);
+// The server identifies players by string id; a stable hash keeps the renderer's
+// integer keys without ever colliding two live players.
+static int uidHash(const char* uid) {
+  unsigned h = 2166136261u;
+  for (const char* p = uid; p && *p; p++) h = (h ^ (unsigned char)*p) * 16777619u;
+  return (int)(h & 0x7FFFFFFF);
+}
+
+RemotePlayer* GameWorld::findByUid(const char* uid) {
+  if (!uid || !*uid) return nullptr;
+  for (int i = 0; i < m_players.count; i++) {
+    if (strcmp(m_players[i].uid, uid) == 0) return &m_players[i];
+  }
+  return nullptr;
+}
+
+void GameWorld::upsertPlayer(const char* uid, const char* username, const Vec3& pos, float heading, bool moving) {
+  if (!uid || !*uid) return;
+  int userId = uidHash(uid);
+  RemotePlayer* p = findByUid(uid);
   if (!p) {
     RemotePlayer np{};
     np.userId = userId;
+    strncpy(np.uid, uid, sizeof np.uid - 1);
     strncpy(np.username, username ? username : "player", sizeof np.username - 1);
     np.pos = pos;
     np.target = pos;

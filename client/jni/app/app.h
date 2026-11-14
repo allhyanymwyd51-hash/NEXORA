@@ -49,7 +49,7 @@ void goBack();
 Screen current();
 void replace(Screen s);
 void refreshMe();
-void enterMap(int mapId);
+void enterMap(const char* mapId);
 void leaveGameplay();
 bool busy();
 void setBusy(bool b, const char* label = nullptr);

@@ -96,7 +96,7 @@ void drawCard(const Rect& r, const Entry& m) {
   ui::Pointer& p = ui::pointer();
   if (r.contains(p.pos.x, p.pos.y) && p.released && p.start.distance(p.pos) < ui::dp(22)) {
     audioPlay("ui_click", 0.4f);
-    openMap(atoi(m.id + 4));
+    openMap(m.id);
   }
 }
 

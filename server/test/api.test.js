@@ -259,3 +259,51 @@ test('logout invalidates the session', async () => {
   const me = await api('/api/auth/me', { token });
   assert.equal(me.status, 401);
 });
+
+// --- client contract regressions -------------------------------------------
+// These pin the exact response shapes the Android client parses. Both bugs below
+// shipped once: map ids were parsed as numbers (they are "map_…" strings) and the
+// settings screen polled a route that only accepts PATCH.
+// logout invalidates the session above, so the contract tests sign in again
+let laterToken;
+test('map ids are opaque strings, every map route accepts them', async () => {
+  const relogin = await api('/api/auth/login', { method: 'POST', body: { login: player.username, password: player.password } });
+  assert.equal(relogin.status, 200);
+  laterToken = relogin.json.token;
+  token = laterToken;
+  const created = await api('/api/maps', { method: 'POST', token: laterToken, body: { name: 'Id Shape', gameType: 'open_world' } });
+  assert.equal(created.status, 201);
+  const id = created.json.map.id;
+  assert.match(id, /^map_[A-Za-z0-9_-]+$/, 'map ids must be prefixed strings');
+  // routed by the raw id, never by a numeric suffix
+  for (const [method, suffix] of [['GET', ''], ['POST', '/favorite'], ['POST', '/join']]) {
+    const res = await api(`/api/maps/${id}${suffix}`, { method, token: laterToken, body: method === 'POST' ? {} : undefined });
+    assert.ok(res.status === 200, `${method} ${suffix} -> ${res.status}`);
+    assert.equal(res.json.ok, true);
+  }
+});
+
+test('world payload carries everything the renderer reads', async () => {
+  // mapId comes from the earlier AI-generation flow
+  const joined = await api(`/api/maps/${mapId}/join`, { method: 'POST', token: laterToken, body: {} });
+  assert.equal(joined.status, 200);
+  const world = joined.json.map.world;
+  for (const key of ['format', 'side', 'gameType', 'terrain', 'water', 'environment', 'spawns', 'audio']) {
+    assert.ok(world[key] !== undefined, `world.${key} missing`);
+  }
+  assert.ok(Array.isArray(world.spawns) && world.spawns.length > 0);
+  assert.equal(typeof world.spawns[0].x, 'number');
+  assert.ok(world.audio.ambient && world.audio.music, 'ambient + music clips required');
+});
+
+test('settings travel in /auth/me and are patched, not fetched', async () => {
+  const get = await api('/api/me/settings', { token: laterToken });
+  assert.equal(get.status, 405, 'GET /api/me/settings must not be a route');
+  const me = await api('/api/auth/me', { token: laterToken });
+  assert.equal(me.status, 200);
+  assert.ok(me.json.user.settings && typeof me.json.user.settings === 'object');
+  const patched = await api('/api/me/settings', { method: 'PATCH', token: laterToken, body: { language: 'en', music: 0.4 } });
+  assert.equal(patched.status, 200);
+  assert.equal(patched.json.settings.language, 'en');
+  assert.equal(patched.json.settings.music, 0.4);
+});

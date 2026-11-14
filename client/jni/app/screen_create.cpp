@@ -25,7 +25,7 @@ char gJobId[48] = {0};
 int gProgress = 0;
 char gStage[32] = {0};
 char gStatus[16] = {0};
-int gMapId = 0;
+char gMapId[48] = {0};
 char gSummary[200] = {0};
 char gError[200] = {0};
 float gStagePulse = 0;
@@ -82,7 +82,7 @@ void resetJob() {
   gProgress = 0;
   gStage[0] = 0;
   gStatus[0] = 0;
-  gMapId = 0;
+  gMapId[0] = 0;
   gSummary[0] = 0;
   gError[0] = 0;
   gSubmitting = false;
@@ -414,8 +414,7 @@ void createAiApi(const ApiEvent& ev) {
       return;
     }
     snprintf(gJobId, sizeof gJobId, "%s", Json::string(Json::get(j.root(), "jobId")));
-    gMapId = 0;
-    gMapId = atoi(Json::string(Json::get(j.root(), "mapId")) + 4);
+    snprintf(gMapId, sizeof gMapId, "%s", Json::string(Json::get(j.root(), "mapId")));
     gStatus[0] = 0;
     gProgress = 2;
     snprintf(gStage, sizeof gStage, "analyse");

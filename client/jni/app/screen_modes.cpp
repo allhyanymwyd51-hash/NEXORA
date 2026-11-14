@@ -133,7 +133,7 @@ void draw(float dt) {
   Rect quick(hero.x + ui::dp(18), hero.y + ui::dp(74), hero.w - ui::dp(36), ui::dp(36));
   if (ui::button("modes_random", quick, tr("دخول سريع", "Quick join"), true, gPopular.count > 0, 12, "play")
           .clicked) {
-    enterMap(atoi(gPopular.count ? gPopular[0].id + 4 : "0"));
+    enterMap(gPopular.count ? gPopular[0].id : "");
   }
   y += ui::dp(134);
 
@@ -151,7 +151,7 @@ void draw(float dt) {
     }
     for (int i = 0; i < gPopular.count && i < 6; i++) {
       Rect r(pad + i * (cw + ui::dp(10)), y, cw, ch);
-      if (drawTile(gPopular[i], r, "pop")) enterMap(atoi(gPopular[i].id + 4));
+      if (drawTile(gPopular[i], r, "pop")) enterMap(gPopular[i].id);
     }
   }
   y += ui::dp(152);
@@ -165,7 +165,7 @@ void draw(float dt) {
     }
     for (int i = 0; i < gFresh.count && i < 6; i++) {
       Rect r(pad + i * (cw + ui::dp(10)), y, cw, ch);
-      if (drawTile(gFresh[i], r, "new")) enterMap(atoi(gFresh[i].id + 4));
+      if (drawTile(gFresh[i], r, "new")) enterMap(gFresh[i].id);
     }
   }
   y += ui::dp(156);

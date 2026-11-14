@@ -25,11 +25,14 @@ void toastError(JsonValue* root, const char* fallback) {
   audioPlay("ui_error", 0.6f);
 }
 
-void openMap(int mapId) {
+void openMap(const char* mapId) {
+  // ids are opaque strings ("map_…"); the detail screen picks them up from the response
+  if (!mapId || !*mapId) return;
   setBusy(true, tr("جاري فتح الماب…", "Opening map…"));
-  char path[64];
-  snprintf(path, sizeof path, "/api/maps/%d", mapId);
-  api.call(NET_MAP_DETAIL, "GET", path, nullptr, mapId);
+  char path[80];
+  snprintf(path, sizeof path, "/api/maps/%s", mapId);
+  api.call(NET_MAP_DETAIL, "GET", path, nullptr, 0);
+  if (current() != Screen::MapDetail) go(Screen::MapDetail);
 }
 
 // ---------------------------------------------------------------------------

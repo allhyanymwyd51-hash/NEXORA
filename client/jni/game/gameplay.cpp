@@ -88,15 +88,21 @@ void Gameplay::sendChat(const char* text) {
   if (m_chatLog.count > 40) m_chatLog.removeAt(0);
 }
 
+// room payload entries: { id: "usr_…", username, x, y, z, heading, moving }
+static const char* playerIdOf(JsonValue* p) {
+  const char* id = Json::string(Json::get(p, "id"));
+  if (!id[0]) id = Json::string(Json::get(p, "userId"));
+  return id;
+}
+
 void Gameplay::onRoomState(JsonValue* root) {
   world.players().clear();
   JsonValue* players = Json::get(root, "players");
   for (int i = 0; i < Json::length(players); i++) {
     JsonValue* p = Json::at(players, i);
-    int uid = 0; 
-    // the room payload carries the stable user id string; skip our own entry
-    if (app::S.uid[0] && strcmp(Json::string(Json::get(p, "userId")), app::S.uid) == 0) continue;
-    if (uid == 0 && !app::S.uid[0]) continue;
+    const char* uid = playerIdOf(p);
+    if (!uid[0]) continue;
+    if (app::S.uid[0] && strcmp(uid, app::S.uid) == 0) continue;  // our own avatar is drawn locally
     Vec3 pos(Json::flt(Json::get(p, "x")), Json::flt(Json::get(p, "y")), Json::flt(Json::get(p, "z")));
     world.upsertPlayer(uid, Json::string(Json::get(p, "username"), "player"), pos,
                        Json::flt(Json::get(p, "heading")), Json::boolean(Json::get(p, "moving")));
@@ -107,10 +113,9 @@ void Gameplay::onRoomTick(JsonValue* root) {
   JsonValue* players = Json::get(root, "players");
   for (int i = 0; i < Json::length(players); i++) {
     JsonValue* p = Json::at(players, i);
-    int uid = 0; 
-    // the room payload carries the stable user id string; skip our own entry
-    if (app::S.uid[0] && strcmp(Json::string(Json::get(p, "userId")), app::S.uid) == 0) continue;
-    if (uid == 0 && !app::S.uid[0]) continue;
+    const char* uid = playerIdOf(p);
+    if (!uid[0]) continue;
+    if (app::S.uid[0] && strcmp(uid, app::S.uid) == 0) continue;
     Vec3 pos(Json::flt(Json::get(p, "x")), Json::flt(Json::get(p, "y")), Json::flt(Json::get(p, "z")));
     world.upsertPlayer(uid, Json::string(Json::get(p, "username"), "player"), pos,
                        Json::flt(Json::get(p, "heading")), Json::boolean(Json::get(p, "moving")));
@@ -120,8 +125,9 @@ void Gameplay::onRoomTick(JsonValue* root) {
 void Gameplay::onPlayerJoined(JsonValue* root) {
   JsonValue* p = Json::get(root, "player");
   if (!p) return;
-  int uid = 0; 
-  if (uid == 0 || uid == app::S.userId) return;
+  const char* uid = playerIdOf(p);
+  if (!uid[0]) return;
+  if (app::S.uid[0] && strcmp(uid, app::S.uid) == 0) return;
   Vec3 pos(Json::flt(Json::get(p, "x")), Json::flt(Json::get(p, "y")), Json::flt(Json::get(p, "z")));
   world.upsertPlayer(uid, Json::string(Json::get(p, "username"), "player"), pos,
                      Json::flt(Json::get(p, "heading")), false);
@@ -131,8 +137,10 @@ void Gameplay::onPlayerJoined(JsonValue* root) {
 }
 
 void Gameplay::onPlayerLeft(JsonValue* root) {
-  int uid = Json::integer(Json::get(root, "userId"), 0);
-  if (uid) world.removePlayer(uid);
+  const char* uid = Json::string(Json::get(root, "userId"));
+  if (!uid[0]) uid = Json::string(Json::get(Json::get(root, "player"), "id"));
+  RemotePlayer* p = world.findByUid(uid);
+  if (p) world.removePlayer(p->userId);
 }
 
 void Gameplay::onChat(JsonValue* root) {

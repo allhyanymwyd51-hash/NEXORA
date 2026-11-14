@@ -38,7 +38,7 @@ const char* tr(const char* ar, const char* en);
 void toastError(JsonValue* root, const char* fallback);
 bool parseOk(JsonValue* root);
 const char* apiMessage(JsonValue* root, const char* fallback);
-void openMap(int mapId);
+void openMap(const char* mapId);
 
 // screens ------------------------------------------------------------------
 namespace login {

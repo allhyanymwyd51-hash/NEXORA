@@ -34,9 +34,9 @@ char gPassDesc[140] = {0};
 int gPassPrice = 50;
 bool gPassForm = false;
 
-int selectedMapIntId() {
-  if (gSelected < 0 || gSelected >= gMine.count) return 0;
-  return atoi(gMine[gSelected].id + 4);
+const char* selectedMapId() {
+  if (gSelected < 0 || gSelected >= gMine.count) return "";
+  return gMine[gSelected].id;
 }
 
 void reload() {
@@ -152,7 +152,7 @@ void draw(float dt) {
 
     Rect play(card.x + ui::dp(14), card.y + ui::dp(76), (card.w - ui::dp(36)) * 0.5f, ui::dp(34));
     if (ui::button("studio_play", play, tr("تجربة", "Test"), true, true, 11.5f, "play").clicked) {
-      enterMap(atoi(m.id + 4));
+      enterMap(m.id);
     }
     Rect pub(card.x + ui::dp(14) + play.w + ui::dp(8), card.y + ui::dp(76), play.w, ui::dp(34));
     bool published = strcmp(m.status, "published") == 0;
@@ -160,7 +160,7 @@ void draw(float dt) {
                    true, 11.5f)
             .clicked) {
       char path[80];
-      snprintf(path, sizeof path, "/api/maps/%d/%s", atoi(m.id + 4), published ? "unpublish" : "publish");
+      snprintf(path, sizeof path, "/api/maps/%s/%s", m.id, published ? "unpublish" : "publish");
       api.call(published ? NET_MAP_UPDATE : NET_MAP_PUBLISH, "POST", path, "{}", 52);
     }
     cy += ui::dp(132);
@@ -178,7 +178,7 @@ void draw(float dt) {
     Rect del(pad, cy, innerW, ui::dp(44));
     if (ui::button("studio_del", del, tr("حذف الماب نهائياً", "Delete map permanently"), false, true, 12).clicked) {
       char path[80];
-      snprintf(path, sizeof path, "/api/maps/%d", atoi(m.id + 4));
+      snprintf(path, sizeof path, "/api/maps/%s", m.id);
       api.call(NET_MAP_DELETE, "DELETE", path, nullptr, 53);
     }
   } else if (gTab == 1) {
@@ -252,7 +252,7 @@ void draw(float dt) {
         snprintf(body, sizeof body, "{\"name\":\"%s\",\"description\":\"%s\",\"price\":%d}", gPassName, gPassDesc,
                  gPassPrice);
         char path[80];
-        snprintf(path, sizeof path, "/api/maps/%d/passes", atoi(m.id + 4));
+        snprintf(path, sizeof path, "/api/maps/%s/passes", m.id);
         api.call(NET_PASS_CREATE, "POST", path, body, 54);
       }
       Rect cancel(pad + create.w + ui::dp(8), cy, innerW - create.w - ui::dp(8), ui::dp(44));

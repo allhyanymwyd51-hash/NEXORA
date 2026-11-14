@@ -387,7 +387,8 @@ void friendsApi(const ApiEvent& ev) {
         Msg msg{};
         snprintf(msg.body, sizeof msg.body, "%s", Json::string(Json::get(m, "body")));
         snprintf(msg.sender, sizeof msg.sender, "%s", Json::string(Json::get(sender, "username")));
-        msg.mine = Json::integer(Json::get(sender, "userId"), 0) == S.userId ||
+        const char* senderId = Json::string(Json::get(sender, "id"));
+        msg.mine = (senderId[0] && S.uid[0] && strcmp(senderId, S.uid) == 0) ||
                    strcmp(Json::string(Json::get(sender, "username")), S.username) == 0;
         gMessages.push(msg);
       }

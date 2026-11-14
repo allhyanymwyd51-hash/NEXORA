@@ -81,7 +81,7 @@ void enter() {
     snprintf(path, sizeof path, "/api/users/%s", S.uid);
     api.call(NET_USER_PROFILE, "GET", path, nullptr, 91);
   }
-  if (S.userId) api.call(NET_USER_MAPS, "GET", "/api/maps/favorites", nullptr, 92);
+  if (S.uid[0]) api.call(NET_USER_MAPS, "GET", "/api/maps/favorites", nullptr, 92);
 }
 
 void leave() {}
@@ -184,7 +184,8 @@ namespace settings {
 
 void enter() {
   gSettingsLoaded = false;
-  api.call(NET_SETTINGS, "GET", "/api/me/settings", nullptr, 95);
+  // settings travel inside /auth/me; the dedicated route only accepts PATCH
+  refreshMe();
 }
 
 void leave() {}
@@ -245,9 +246,10 @@ void draw(float dt) {
       *toggles[i].value = !on;
       audioPlay("ui_click", 0.4f);
       char body[128];
-      snprintf(body, sizeof body, "{\"%s\":%s}", i == 2 ? "voiceChat" : i == 1 ? "music" : "sfx",
-               *toggles[i].value ? "true" : "false");
-      api.call(i == 2 ? NET_SETTINGS : NET_ME, "PATCH", i == 2 ? "/api/me/settings" : "/api/me/profile", body, 96);
+      if (i == 2) snprintf(body, sizeof body, "{\"voiceChat\":%s}", *toggles[i].value ? "true" : "false");
+      else if (i == 1) snprintf(body, sizeof body, "{\"music\":%.2f}", *toggles[i].value ? 0.6 : 0.0);
+      else snprintf(body, sizeof body, "{\"sound\":%.2f}", *toggles[i].value ? 0.9 : 0.0);
+      api.call(NET_SETTINGS, "PATCH", "/api/me/settings", body, 96);
       if (i == 0) audioSetMasterGain(S.sfx ? 1.0f : 0.0f);
       if (i == 1) audioSetMusicGain(S.music ? 0.6f : 0.0f);
       saveLocalSettings();
@@ -530,6 +532,11 @@ void notificationsApi(const ApiEvent& ev) {
       gNotifs.push(r);
     }
     gUnread = Json::integer(Json::get(j.root(), "unread"), 0);
+    if (!Json::get(j.root(), "unread")) {
+      int unread = 0;
+      for (int i = 0; i < gNotifs.count; i++) if (!gNotifs[i].read) unread++;
+      gUnread = unread;
+    }
     S.unread = gUnread;
     gNotifsLoaded = true;
     return;
