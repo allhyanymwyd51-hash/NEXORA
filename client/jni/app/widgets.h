@@ -42,4 +42,21 @@ void scrollFadeTop(const Rect& r, bool visible);
 void scrollFadeBottom(const Rect& r, bool visible);
 
 }  // namespace ui
+
+// Escape user text before it goes into a JSON body. Quotes/backslashes/newlines are
+// what actually break a request; everything below 0x20 is dropped. Arabic is UTF-8
+// and passes through untouched.
+inline void escapeJson(const char* in, char* out, size_t cap) {
+  if (!cap) return;
+  size_t o = 0;
+  for (const char* p = in; p && *p && o + 8 < cap; p++) {
+    unsigned char c = (unsigned char)*p;
+    if (c == '"' || c == '\\') { out[o++] = '\\'; out[o++] = (char)c; }
+    else if (c == '\n' || c == '\r' || c == '\t') { out[o++] = ' '; }
+    else if (c < 0x20) continue;
+    else out[o++] = (char)c;
+  }
+  out[o] = 0;
+}
+
 }  // namespace nx

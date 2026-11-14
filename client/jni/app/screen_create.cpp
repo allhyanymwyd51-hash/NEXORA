@@ -40,8 +40,9 @@ const char* kTypeEn[10] = {"Open world", "Life sim", "Adventure", "Racing", "Sur
 const char* kSizes[4] = {"small", "medium", "large", "huge"};
 const char* kSizeAr[4] = {"صغير", "متوسط", "كبير", "ضخم"};
 const char* kSizeEn[4] = {"Small", "Medium", "Large", "Huge"};
-const char* kSizeMeta[4][2] = {{"≈ 400م", "≈ 400m"}, {"≈ 800م", "≈ 800m"}, {"≈ 1200م", "≈ 1200m"},
-                               {"≈ 2400م", "≈ 2400m"}};
+// matches SIZE_PRESETS in the server's world generator (world units are metres)
+const char* kSizeMeta[4][2] = {{"640م", "640m"}, {"1000م", "1000m"}, {"1400م", "1400m"},
+                               {"1900م", "1900m"}};
 const char* kDetails[3] = {"simple", "detailed", "ultra"};
 const char* kDetailAr[3] = {"بسيط", "مفصّل", "فائق"};
 const char* kDetailEn[3] = {"Simple", "Detailed", "Ultra"};

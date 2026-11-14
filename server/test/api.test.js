@@ -307,3 +307,53 @@ test('settings travel in /auth/me and are patched, not fetched', async () => {
   assert.equal(patched.json.settings.language, 'en');
   assert.equal(patched.json.settings.music, 0.4);
 });
+
+// --- owner console ---------------------------------------------------------
+// The client's owner console reads /api/admin/overview (grouped metrics), searches
+// users, bans them and broadcasts. Promote the friend account directly so the test
+// does not depend on the create-owner script.
+test('owner console: overview, user search, broadcast', async () => {
+  const { DatabaseSync } = await import('node:sqlite');
+  const db = new DatabaseSync(DB);
+  db.prepare("UPDATE users SET role = 'owner' WHERE username = ?").run(friend.username);
+  db.close();
+
+  const login = await api('/api/auth/login', { method: 'POST', body: { login: friend.username, password: friend.password } });
+  assert.equal(login.status, 200);
+  const ownerToken = login.json.token;
+
+  const overview = await api('/api/admin/overview', { token: ownerToken });
+  assert.equal(overview.status, 200);
+  for (const group of ['users', 'maps', 'economy', 'sessions', 'server']) {
+    assert.ok(overview.json[group] && typeof overview.json[group] === 'object', `overview.${group}`);
+  }
+  assert.equal(typeof overview.json.users.total, 'number');
+  assert.equal(typeof overview.json.maps.published, 'number');
+  assert.equal(overview.json.server.version, '1.0.0');
+
+  const search = await api(`/api/admin/users?q=${encodeURIComponent(player.username)}`, { token: ownerToken });
+  assert.equal(search.status, 200);
+  const found = search.json.users.find((u) => u.username === player.username);
+  assert.ok(found, 'search finds the player');
+  assert.match(found.id, /^usr_/);
+
+  const before = await api('/api/me/notifications?limit=1', { token: laterToken });
+  const broadcast = await api('/api/admin/broadcast', { method: 'POST', token: ownerToken, body: { title: 'NEXORA', body: 'صيانة الليلة 11 مساءً' } });
+  assert.equal(broadcast.status, 200, broadcast.text);
+  assert.ok(broadcast.json.sent >= 2, 'broadcast reaches every active player');
+  const after = await api('/api/me/notifications?limit=5', { token: laterToken });
+  assert.ok((after.json.notifications || after.json.items || []).length >= 1, 'player receives the announcement');
+});
+
+test('notifications carry an unread count the bell badge can render', async () => {
+  const list = await api('/api/me/notifications?limit=1', { token: laterToken });
+  assert.equal(list.status, 200);
+  assert.equal(typeof list.json.unread, 'number');
+  assert.ok(list.json.notifications.length <= 1, 'limit is honoured');
+  const me = await api('/api/auth/me', { token: laterToken });
+  assert.equal(me.json.user.unreadNotifications, list.json.unread, 'badge and list agree');
+  const read = await api('/api/me/notifications/read', { method: 'POST', token: laterToken, body: {} });
+  assert.equal(read.status, 200);
+  const after = await api('/api/me/notifications', { token: laterToken });
+  assert.equal(after.json.unread, 0, 'mark-all clears the badge');
+});

@@ -63,6 +63,19 @@ function auditRow(a) {
     detail: safeJson(a.detail, {}), ip: a.ip, at: a.created_at };
 }
 
+// ---- broadcast -----------------------------------------------------------
+// The owner console sends one notification to every active player. Announcements
+// travel through the normal notifications feed, so they survive a restart.
+post('/api/admin/broadcast', async (ctx) => {
+  const title = cleanText(ctx.body.title, 60) || 'NEXORA';
+  const body = cleanText(ctx.body.body, 400);
+  if (!body) throw badRequest('empty_body', 'لا يمكن إرسال إشعار فارغ');
+  const users = all('SELECT id FROM users WHERE banned = 0');
+  for (const u of users) notify(u.id, 'system', title, body, { broadcast: true });
+  audit(ctx.user.id, 'admin.broadcast', 'users', { recipients: users.length }, ctx.ip);
+  ctx.out(200, { ok: true, sent: users.length });
+}, O);
+
 // ---- users ---------------------------------------------------------------
 getRoute('/api/admin/users', async (ctx) => {
   const q = (ctx.query.get('q') || '').trim();

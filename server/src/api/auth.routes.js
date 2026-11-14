@@ -2,7 +2,7 @@
 import { get, run } from '../core/db.js';
 import {
   badRequest, conflict, unauthorized, forbidden, nowSec, validateUsername, validateEmail,
-  validatePassword, validateBirthDate, cleanText, rateLimit, HttpError,
+  validatePassword, validateBirthDate, cleanText, rateLimit, clampInt, HttpError,
 } from '../core/util.js';
 import { hashPassword, verifyPassword, randomToken, sha256, newId } from '../core/security.js';
 import { createSession, destroySession, bearer, audit, notify } from '../core/auth.js';
@@ -219,7 +219,10 @@ patch('/api/me/settings', async (ctx) => {
 
 getRoute('/api/me/notifications', async (ctx) => {
   const { notificationsFor } = await import('../core/auth.js');
-  ctx.out(200, { ok: true, notifications: notificationsFor(ctx.user.id, 60) });
+  const limit = clampInt(ctx.query.get('limit'), 1, 60, 60);
+  // `unread` drives the bell badge and the "mark all read" action on the client
+  const unread = get('SELECT COUNT(*) AS c FROM notifications WHERE user_id = ? AND read_at = 0', ctx.user.id).c;
+  ctx.out(200, { ok: true, unread, notifications: notificationsFor(ctx.user.id, limit) });
 }, { auth: true });
 
 post('/api/me/notifications/read', async (ctx) => {
