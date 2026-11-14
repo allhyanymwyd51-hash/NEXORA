@@ -11,6 +11,7 @@ import { GAME_TYPES, validateWorld, SIZE_PRESETS, DETAIL_MULT } from '../ai/worl
 import { startPlaySession, endPlaySession, heartbeat } from '../core/economy.js';
 import { get as getRoute, post, patch, del } from './router.js';
 import { containsProfanity } from '../core/moderation.js';
+import { roomState } from '../core/realtime.js';
 
 const PUBLIC_COLUMNS = `m.id, m.owner_id, m.name, m.description, m.cover, m.game_type, m.privacy,
   m.max_players, m.version, m.status, m.visits, m.is_ai, m.created_at, m.updated_at, m.published_at`;
@@ -30,6 +31,7 @@ function mapCard(row, viewerId) {
     gameType: row.game_type,
     privacy: row.privacy,
     maxPlayers: row.max_players,
+    players: roomState(row.id).count,   // live room occupancy, so cards can show "3 playing"
     version: row.version,
     status: row.status,
     visits: row.visits,
