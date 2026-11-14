@@ -72,6 +72,14 @@ server/src/ai       deterministic world generator + modification engine
 tools/font-preview  host-side renderer to check Arabic shaping without a device
 ```
 
+## Pointing the client at a server
+
+The client is built against `http://10.0.2.2:8080` (the emulator's route to the host machine).
+On a real phone, open the login screen, tap the **Server** chip under the buttons and type the
+machine running the server — `192.168.1.20:8080`, or a full `http://…` / `https://…` URL. The
+address is saved with the session and used for both REST and the WebSocket. Start the server with
+`HOST=0.0.0.0` so the phone can reach it.
+
 ## Honest limits
 
 The APK has been built, signed and verified, and its C++ was compiled per translation unit; the
