@@ -7,7 +7,9 @@ server-authoritative.
 
 - **Client** — `client/` · native C++17, no NDK, no Gradle, no Google/Maven artifacts
 - **Server** — `server/` · Node 22, `node:sqlite`, no npm dependencies
-- **APK** — `client/build/nexora-1.0.0.apk` (arm64-v8a, minSdk 26, targetSdk 34)
+- **APK** — 108.6 MB, arm64-v8a, minSdk 26, targetSdk 34. Reassemble it from the tracked
+  parts: `cd dist && cat nexora-1.0.0.apk.part-* > nexora-1.0.0.apk && md5sum -c nexora-1.0.0.apk.md5`
+  (GitHub rejects single files above 100 MB).
 
 ## Running the server
 
