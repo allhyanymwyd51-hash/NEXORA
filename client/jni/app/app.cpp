@@ -49,6 +49,7 @@ void loadLocalSettings() {
     JsonValue* r = j.root();
     snprintf(S.token, sizeof S.token, "%s", Json::string(Json::get(r, "token")));
     snprintf(S.uid, sizeof S.uid, "%s", Json::string(Json::get(r, "uid")));
+    snprintf(S.server, sizeof S.server, "%s", Json::string(Json::get(r, "server")));
     snprintf(S.username, sizeof S.username, "%s", Json::string(Json::get(r, "username")));
     S.language = Json::integer(Json::get(r, "language"), 0);
     S.quality = Json::integer(Json::get(r, "quality"), 4);
@@ -66,9 +67,9 @@ void saveLocalSettings() {
   if (!gSessionPath[0]) snprintf(gSessionPath, sizeof gSessionPath, "%s/nexora.json", filesDir());
   char body[1600];
   snprintf(body, sizeof body,
-           "{\"token\":\"%s\",\"uid\":\"%s\",\"username\":\"%s\",\"language\":%d,\"quality\":%d,"
+           "{\"token\":\"%s\",\"uid\":\"%s\",\"server\":\"%s\",\"username\":\"%s\",\"language\":%d,\"quality\":%d,"
            "\"music\":%s,\"sfx\":%s,\"voice\":%s,\"haptics\":%s,\"musicVolume\":%.3f,\"sfxVolume\":%.3f}",
-           S.token, S.uid, S.username, S.language, S.quality, S.music ? "true" : "false",
+           S.token, S.uid, S.server, S.username, S.language, S.quality, S.music ? "true" : "false",
            S.sfx ? "true" : "false", S.voice ? "true" : "false", S.haptics ? "true" : "false",
            (double)S.musicVolume, (double)S.sfxVolume);
   writeFile(gSessionPath, body, strlen(body));
@@ -116,6 +117,7 @@ void setBusy(bool b, const char* label) {
 void init() {
   netInit();
   loadLocalSettings();
+  applyServerAddress();
   if (S.token[0]) {
     snprintf(api.token, sizeof api.token, "%s", S.token);
     api.userId = S.userId;
@@ -136,6 +138,36 @@ void shutdown() {
   if (game::Gameplay::get().active()) game::Gameplay::get().leave();
   ws::shutdown();
   api.stop();
+  saveLocalSettings();
+}
+
+// Turn "host[:port]" into the HTTP + WebSocket base URLs. Accepts a bare host, a full
+// URL, or host:port with an optional /path prefix, so a player can type what they have.
+void applyServerAddress() {
+  const char* raw = S.server;
+  if (!raw[0]) return;                       // keep the compiled-in default (emulator loopback)
+  char host[120] = {0};
+  bool tls = false;
+  const char* p = raw;
+  if (strncmp(p, "https://", 8) == 0) { tls = true; p += 8; }
+  else if (strncmp(p, "http://", 7) == 0) { p += 7; }
+  else if (strncmp(p, "wss://", 6) == 0) { tls = true; p += 6; }
+  else if (strncmp(p, "ws://", 5) == 0) { p += 5; }
+  size_t n = 0;
+  while (p[n] && p[n] != '/' && n < sizeof host - 1) { host[n] = p[n]; n++; }
+  host[n] = 0;
+  if (!host[0]) return;
+  bool hasPort = false;
+  for (size_t i = 0; i < n; i++) if (host[i] == ':') hasPort = true;
+  char http[192], ws[192];
+  snprintf(http, sizeof http, "%s://%s%s", tls ? "https" : "http", host, hasPort ? "" : ":8080");
+  snprintf(ws, sizeof ws, "%s://%s%s/ws", tls ? "wss" : "ws", host, hasPort ? "" : ":8080");
+  api.setBaseUrl(http, ws);   // the socket reads api.wsUrl directly
+}
+
+void setServerAddress(const char* address) {
+  snprintf(S.server, sizeof S.server, "%s", address ? address : "");
+  applyServerAddress();
   saveLocalSettings();
 }
 
@@ -224,6 +256,16 @@ void applyMe(JsonValue* root) {
 void frame(float dt) {
   Engine& e = Engine::get();
   gFrameAnim += dt;
+
+  // The engine owns focus, so it drives the IME: any focused text field raises the
+  // soft keyboard, and losing focus takes it away again.
+  static bool keyboardUp = false;
+  const bool wantKeyboard = ui::focusedId()[0] != 0 && !game::Gameplay::get().active();
+  if (wantKeyboard != keyboardUp) {
+    keyboardUp = wantKeyboard;
+    if (keyboardUp) e.showKeyboard();
+    else e.hideKeyboard();
+  }
 
   ApiEvent ev;
   while (popApiEvent(ev)) {

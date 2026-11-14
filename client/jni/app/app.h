@@ -49,6 +49,10 @@ void goBack();
 Screen current();
 void replace(Screen s);
 void refreshMe();
+// Point the client at a server: "host", "host:8080" or a full http(s):// URL.
+// Empty clears the override and restores the build default.
+void setServerAddress(const char* address);
+void applyServerAddress();
 void enterMap(const char* mapId);
 void leaveGameplay();
 bool busy();

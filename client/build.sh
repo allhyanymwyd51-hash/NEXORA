@@ -67,7 +67,7 @@ NATIVE_INCLUDES=(-I jni -I jni/compat)
 # Symbols the platform provides at runtime, grouped by the library that owns them.
 LIBC_SYMS="malloc calloc realloc free memcpy memmove memset strlen strcmp strncmp strncpy strcpy strchr strstr
   strncasecmp strtol strtoul atoi atof snprintf vsnprintf srand clock_gettime open close read write lseek
-  access abort usleep pthread_create"
+  access abort usleep pthread_create pthread_self pthread_mutex_init pthread_mutex_lock pthread_mutex_unlock pthread_mutex_destroy pthread_join"
 LIBM_SYMS="sinf cosf tanf expf powf atan2f sincosf"
 LIBDL_SYMS="dlopen dlsym"
 LIBLOG_SYMS="__android_log_print"

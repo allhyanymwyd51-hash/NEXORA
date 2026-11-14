@@ -21,6 +21,8 @@ float gShake = 0;
 int gErrorCode = 0;      // 1 invalid credentials, 2 username taken, 3 email taken, 4 weak password, 5 terms
 char gErrorMsg[180] = {0};
 float gAnim = 0;
+char gServerField[96] = {0};
+bool gServerOpen = false;   // first-run players need to point the client at their server
 
 // 18+ gate is enforced server side; the client only collects the date.
 bool birthLooksValid(const char* s) {
@@ -141,6 +143,37 @@ void draw(float dt) {
   if (ui::button("login_lang", lang, S.language == 0 ? "English" : "العربية", false, true, 12).clicked) {
     S.language = S.language == 0 ? 1 : 0;
     saveLocalSettings();
+  }
+
+  // ---- server address: the client ships pointed at the emulator loopback, so a
+  // real device needs a way to enter its server without rebuilding the APK.
+  float sy = registerBtn.y + registerBtn.h + ui::dp(10);
+  Rect chip(x, sy, colW, ui::dp(38));
+  char chipLabel[128];
+  snprintf(chipLabel, sizeof chipLabel, "%s: %s", screens::tr("الخادم", "Server"),
+           S.server[0] ? S.server : screens::tr("افتراضي (محاكي)", "default (emulator)"));
+  if (ui::button("login_server", chip, chipLabel, false, true, 11.5f, "gear").clicked) {
+    gServerOpen = !gServerOpen;
+    if (gServerOpen && !gServerField[0]) snprintf(gServerField, sizeof gServerField, "%s", S.server);
+  }
+  if (gServerOpen) {
+    float fy = chip.y + chip.h + ui::dp(8);
+    Rect field(x, fy, colW, ui::dp(44));
+    ui::textField("login_server_field", field, gServerField, sizeof gServerField,
+                  screens::tr("عنوان الخادم، مثال 192.168.1.20:8080", "Server address, e.g. 192.168.1.20:8080"), false, 90);
+    Rect save(x, fy + ui::dp(50), colW * 0.48f, ui::dp(38));
+    Rect def(x + colW * 0.52f, fy + ui::dp(50), colW * 0.48f, ui::dp(38));
+    if (ui::button("login_server_save", save, screens::tr("استخدم هذا الخادم", "Use this server"), true,
+                   gServerField[0] != 0, 11.5f).clicked) {
+      app::setServerAddress(gServerField);
+      gServerOpen = false;
+      ui::toast(screens::tr("تم حفظ عنوان الخادم", "Server address saved"), 2.0f);
+    }
+    if (ui::button("login_server_default", def, screens::tr("الافتراضي", "Reset"), false, true, 11.5f).clicked) {
+      app::setServerAddress("");
+      gServerField[0] = 0;
+      gServerOpen = false;
+    }
   }
 }
 

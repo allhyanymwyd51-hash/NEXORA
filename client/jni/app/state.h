@@ -13,6 +13,7 @@ struct State {
   char token[256] = {0};
   int userId = 0;
   char uid[48] = {0};        // server-side id string (usr_…), used for DMs and routes
+  char server[96] = {0};     // host[:port] the player pointed the client at ("" = build default)
   char username[64] = {0};
   char roleName[24] = "player";
   Role role = Role::Player;

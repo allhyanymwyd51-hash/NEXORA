@@ -370,7 +370,7 @@ void Engine::toast(const char* msg) { app::toast(msg); }
 
 void Engine::showKeyboard() {
   if (!jni.env || !gActivity) return;
-  jclass act = jni.findClass("com/nexora/game/NexoraActivity");
+  jclass act = jni.findAppClass("com/nexora/game/NexoraActivity");
   if (!act) return;
   jmethodID m = jni.getMethodID(act, "showKeyboard", "()V");
   if (m) jni.callVoidMethod(gActivity, m);
@@ -379,7 +379,7 @@ void Engine::showKeyboard() {
 
 void Engine::hideKeyboard() {
   if (!jni.env || !gActivity) return;
-  jclass act = jni.findClass("com/nexora/game/NexoraActivity");
+  jclass act = jni.findAppClass("com/nexora/game/NexoraActivity");
   if (!act) return;
   jmethodID m = jni.getMethodID(act, "hideKeyboard", "()V");
   if (m) jni.callVoidMethod(gActivity, m);
@@ -389,7 +389,7 @@ void Engine::hideKeyboard() {
 void Engine::requestMicPermission() {
   if (m_micGranted) { onPermissionResult("microphone", true); return; }
   if (!jni.env || !gActivity) return;
-  jclass actCls = jni.findClass("com/nexora/game/NexoraActivity");
+  jclass actCls = jni.findAppClass("com/nexora/game/NexoraActivity");
   if (!actCls) return;
   jmethodID req = jni.getMethodID(actCls, "requestMic", "()V");
   if (req) jni.callVoidMethod(gActivity, req);
@@ -407,13 +407,22 @@ extern "C" JavaVM* gJavaVM = nullptr;
 
 extern "C" {
 
+// JNIEnv for the thread that loaded the library. The JavaVM is a pointer to the
+// JNIInvokeInterface function table; GetEnv is entry 6 (reserved0..2, DestroyJavaVM,
+// AttachCurrentThread, DetachCurrentThread, GetEnv).
 JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
   if (!vm) return -1;
-  JNIEnv* env = nullptr;
-  typedef int (*GetEnvFn)(JavaVM*, JNIEnv**, int);
-  GetEnvFn getEnv = *(GetEnvFn*)((void**)*(void**)vm + 6);
-  if (!getEnv || getEnv(vm, &env, 6) != 0) return -1;
   gJavaVM = vm;
+  jni.vm = vm;
+  void* const* invokeTable = *(void* const**)vm;
+  typedef jint (*GetEnvFn)(JavaVM*, void**, jint);
+  GetEnvFn getEnv = invokeTable ? (GetEnvFn)invokeTable[6] : nullptr;
+  JNIEnv* env = nullptr;
+  jint rc = getEnv ? getEnv(vm, (void**)&env, 6 /*JNI_VERSION_1_6*/) : -1;
+  if (rc != 0 || !env) {
+    NX_LOGE("JNI_OnLoad: GetEnv failed (%d)", (int)rc);
+    return -1;  // the JVM unloads the library instead of crashing on a bad env
+  }
   Engine::get().init(env, vm);
   return 6;
 }
@@ -487,6 +496,23 @@ JNIEXPORT void JNICALL Java_com_nexora_game_NativeBridge_touchUp(JNIEnv*, jclass
 
 JNIEXPORT void JNICALL Java_com_nexora_game_NativeBridge_key(JNIEnv*, jclass, jint code, jboolean down) {
   if (down) Engine::get().pushKey(code);
+}
+
+JNIEXPORT void JNICALL Java_com_nexora_game_NativeBridge_textTyped(JNIEnv* env, jclass, jstring text) {
+  jni.env = env;
+  if (!text) return;
+  char buf[512];
+  int n = jni.getStringUTFLength(text);
+  if (n <= 0) return;
+  if (n > (int)sizeof buf - 1) n = (int)sizeof buf - 1;
+  jni.getStringUTFRegion(text, 0, n, buf);
+  buf[n] = 0;
+  Engine::get().pushText(buf);
+}
+
+JNIEXPORT void JNICALL Java_com_nexora_game_NativeBridge_keyTyped(JNIEnv* env, jclass, jint code) {
+  jni.env = env;
+  Engine::get().pushKey((int)code);
 }
 
 JNIEXPORT void JNICALL Java_com_nexora_game_NativeBridge_onPermissionResult(JNIEnv*, jclass, jstring permission,

@@ -24,6 +24,9 @@ public final class NativeBridge {
     public static native void touchMove(int id, float x, float y, long time);
     public static native void touchUp(int id, float x, float y, long time);
     public static native void key(int code, boolean down);
+    // IME text: typed UTF-8 characters, and key codes (67 = backspace, 66 = enter)
+    public static native void textTyped(String utf8);
+    public static native void keyTyped(int code);
 
     // Audio sample rate negotiation for the native mixer
     public static native void setAudioSampleRate(int rate);

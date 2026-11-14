@@ -270,22 +270,91 @@ static JNINativeInterfaceApi* envApi(JNIEnv* env) {
   return *(JNINativeInterfaceApi**)(env);
 }
 
+static void* currentThreadId() {
+  return (void*)pthread_self();
+}
+
+// Attach table + shared JNIEnv pointer are touched by three threads (render, HTTP
+// worker, socket), so they need a lock that is ready before any of them runs.
+static bool syncReady = false;
+static void* syncMutexStorage[16] = {};
+#define syncMutex (*(pthread_mutex_t*)syncMutexStorage)
+
+static void initSync() {
+  if (syncReady) return;
+  pthread_mutex_init(&syncMutex, nullptr);
+  syncReady = true;
+}
+
+// Attach the calling thread once and remember its env; JNIEnv must never be shared
+// between threads (the JVM hands each attached thread its own).
 bool Jni::attach() {
   if (!vm) return false;
-  if (env) return true;
+  if (!syncReady) initSync();   // the render thread may reach this first
+  pthread_mutex_lock(&syncMutex);
+  void* tid = currentThreadId();
+  for (int i = 0; i < threadCount; i++) {
+    if (threadIds[i] == tid) { env = threadEnv[i]; pthread_mutex_unlock(&syncMutex); return true; }
+  }
   JNIInvokeInterfaceApi* api = *(JNIInvokeInterfaceApi**)vm;
   JNIEnv* e = nullptr;
   typedef int (*AttachFn)(JavaVM*, JNIEnv**, void*);
   int rc = ((AttachFn)api->AttachCurrentThread)(vm, &e, nullptr);
-  if (rc != kJNI_OK) return false;
+  if (rc != kJNI_OK) { pthread_mutex_unlock(&syncMutex); return false; }
+  if (threadCount < kMaxThreads) {
+    threadEnv[threadCount] = e;
+    threadIds[threadCount] = tid;
+    threadCount++;
+  }
   env = e;
+  pthread_mutex_unlock(&syncMutex);
   return true;
+}
+
+JNIEnv* Jni::forThread() {
+  attach();
+  return env;
 }
 
 jobject Jni::newGlobalRef(jobject o) { return ((jobject(*)(JNIEnv*, jobject))envApi(env)->NewGlobalRef)(env, o); }
 void Jni::deleteLocalRef(jobject o) { ((void (*)(JNIEnv*, jobject))envApi(env)->DeleteLocalRef)(env, o); }
 void Jni::deleteGlobalRef(jobject o) { ((void (*)(JNIEnv*, jobject))envApi(env)->DeleteGlobalRef)(env, o); }
 jclass Jni::findClass(const char* name) { return (jclass)((jobject(*)(JNIEnv*, const char*))envApi(env)->FindClass)(env, name); }
+extern "C" jobject gActivity;  // owned by engine.cpp, set by NativeBridge.setActivity
+
+// FindClass is relative to the caller's class loader. On a native thread that the JVM
+// attached itself the app loader may not be on the stack, so go through the Activity's
+// loader — that always resolves com.nexora.game.* reliably.
+jclass Jni::findAppClass(const char* name) {
+  if (!gActivity) return findClass(name);
+  JNIEnv* e = forThread();
+  if (!e) return nullptr;
+  jclass actClass = findClass("android/app/Activity");
+  if (!actClass) return nullptr;
+  jmethodID getClassM = getMethodID(actClass, "getClass", "()Ljava/lang/Class;");  // inherited from Object
+  jclass classClass = findClass("java/lang/Class");
+  jmethodID getLoaderM = getMethodID(classClass, "getClassLoader", "()Ljava/lang/ClassLoader;");
+  jclass loaderClass = findClass("java/lang/ClassLoader");
+  jmethodID loadClassM = getMethodID(loaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
+  jclass result = nullptr;
+  if (getClassM && getLoaderM && loadClassM) {
+    jobject actObjClass = callObject(gActivity, getClassM);
+    jobject loader = callObject(actObjClass, getLoaderM);
+    // "com.nexora.game.NexoraActivity" with dots
+    char dotted[128];
+    size_t i = 0;
+    for (; name[i] && i < sizeof dotted - 1; i++) dotted[i] = name[i] == '/' ? '.' : name[i];
+    dotted[i] = 0;
+    jstring jname = newStringUTF(dotted);
+    result = (jclass)callObject(loader, loadClassM, jname);
+    if (jname) deleteLocalRef(jname);
+    if (loader) deleteLocalRef(loader);
+    if (actObjClass) deleteLocalRef(actObjClass);
+  }
+  (void)e;
+  return result;
+}
+
 jmethodID Jni::getStaticMethodID(jclass c, const char* name, const char* sig) {
   return ((jmethodID(*)(JNIEnv*, jclass, const char*, const char*))envApi(env)->GetStaticMethodID)(env, c, name, sig);
 }
@@ -374,7 +443,8 @@ uint64_t fnv1a(const void* data, size_t size) {
 bool readAsset(const char* path, void** outData, size_t* outSize) {
   *outData = nullptr;
   *outSize = 0;
-  if (!gAssetManager || !jni.env) return false;
+  JNIEnv* tenv = jni.forThread();
+  if (!gAssetManager || !tenv) return false;
   jclass amClass = jni.findClass("android/content/res/AssetManager");
   if (!amClass) return false;
   // open(path, ACCESS_STREAMING=2) -> InputStream

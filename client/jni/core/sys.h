@@ -98,6 +98,8 @@ int pthread_mutex_destroy(void* mutex);
 int pthread_create(unsigned long* thread, const void* attr, void* (*start)(void*), void* arg);
 int pthread_join(unsigned long thread, void** retval);
 unsigned long pthread_self();
+typedef struct __nx_pthread_mutex { long __data[8]; } pthread_mutex_t;
+typedef struct __nx_pthread_attr { long __data[8]; } pthread_attr_t;
 #define NX_MUTEX_SIZE 40
 
 // C++ runtime glue the freestanding build provides itself (see core/cxxstubs.cpp)
@@ -154,14 +156,24 @@ inline double nowSeconds() {
 // Full JNI environment access (struct layouts are fixed by the JNI spec).
 struct Jni {
   JavaVM* vm = nullptr;
-  JNIEnv* env = nullptr;
-  bool attach();
+  // JNIEnv is per-thread: the render thread, the HTTP worker and the socket thread each
+  // need their own. A single shared env meant asset reads from the render thread ran on
+  // another thread's env (undefined behaviour), and FindClass from a native thread that
+  // the JVM does not consider "attached" returns null.
+  static const int kMaxThreads = 8;
+  JNIEnv* env = nullptr;            // env of the thread that most recently entered JNI
+  JNIEnv* threadEnv[kMaxThreads] = {};
+  void* threadIds[kMaxThreads] = {};
+  int threadCount = 0;
+  bool attach();                    // attach the calling thread, cache its env
+  JNIEnv* forThread();              // env for the calling thread, attaching if needed
   // object management
   jobject newGlobalRef(jobject o);
   void deleteLocalRef(jobject o);
   void deleteGlobalRef(jobject o);
   // classes / calls
   jclass findClass(const char* name);
+  jclass findAppClass(const char* name);   // via the activity's class loader (native threads)
   jmethodID getStaticMethodID(jclass c, const char* name, const char* sig);
   jmethodID getMethodID(jclass c, const char* name, const char* sig);
   jobject callStaticObject(jclass c, jmethodID m, ...);

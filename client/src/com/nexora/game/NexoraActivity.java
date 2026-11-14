@@ -9,6 +9,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 
 /**
@@ -24,6 +26,8 @@ public class NexoraActivity extends Activity {
     }
 
     private NexoraSurfaceView surfaceView;
+    private EditText ime;
+    private String capLast = "";
     private static final int REQ_MIC = 7101;
 
     @Override
@@ -86,6 +90,74 @@ public class NexoraActivity extends Activity {
     }
 
     /** Called from native code (UI thread) when the player enables voice chat. */
+    /**
+     * Soft keyboard. The engine draws its own text fields, so it owns focus; the activity
+     * only raises/lowers the IME. Native input arrives through {@link EditText} (an invisible
+     * 1x1 view) because a SurfaceView has no editable text connection of its own.
+     */
+    public void showKeyboard() {
+        runOnUiThread(() -> {
+            if (ime == null) {
+                ime = new EditText(this);
+                ime.setBackground(null);
+                ime.setTextColor(0x00000000);
+                ime.setAlpha(0.01f);
+                ime.setSingleLine(true);
+                ime.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                        | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+                ime.addTextChangedListener(new android.text.TextWatcher() {
+                    private String last = "";
+                    @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+                    @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
+                    @Override public void afterTextChanged(android.text.Editable e) {
+                        String now = e.toString();
+                        if (now.length() > last.length()) {
+                            capLast = now;
+                            NativeBridge.textTyped(now.substring(last.length()));
+                        } else if (now.length() < last.length()) {
+                            NativeBridge.keyTyped(67);
+                        }
+                        if (now.length() > 256) {   // keep the IME buffer from growing forever
+                            last = "";
+                            e.clear();
+                        } else {
+                            last = now;
+                        }
+                    }
+                });
+                FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(1, 1);
+                ime.setLayoutParams(lp);
+                ((FrameLayout) ((View) surfaceView.getParent())).addView(ime);
+            }
+            ime.requestFocus();
+            InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (imm != null) imm.showSoftInput(ime, InputMethodManager.SHOW_IMPLICIT);
+        });
+    }
+
+    public void hideKeyboard() {
+        runOnUiThread(() -> {
+            InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (imm != null && ime != null) imm.hideSoftInputFromWindow(ime.getWindowToken(), 0);
+            if (ime != null) ime.clearFocus();
+        });
+    }
+
+    /** Back / enter from the IME go to the game. */
+    public boolean dispatchKeyEvent(android.view.KeyEvent event) {
+        if (event.getKeyCode() == android.view.KeyEvent.KEYCODE_DEL
+                && event.getAction() == android.view.KeyEvent.ACTION_DOWN) {
+            NativeBridge.keyTyped(67);
+            return true;
+        }
+        if (event.getKeyCode() == android.view.KeyEvent.KEYCODE_ENTER
+                && event.getAction() == android.view.KeyEvent.ACTION_DOWN) {
+            NativeBridge.keyTyped(66);
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
     public void requestMic() {
         if (Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
