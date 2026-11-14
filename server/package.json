@@ -1,0 +1,17 @@
+{
+  "name": "nexora-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NEXORA authoritative backend: accounts, maps, NEX AI world planning, economy, social, realtime",
+  "type": "module",
+  "engines": { "node": ">=22.5.0" },
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test test/",
+    "owner": "node scripts/create-owner.js",
+    "backup": "node scripts/backup.js"
+  },
+  "dependencies": {}
+}
