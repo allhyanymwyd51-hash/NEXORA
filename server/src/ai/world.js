@@ -674,7 +674,8 @@ const MODIFY_OPS = [
   { re: /مدين|مدينه|city/i, op: 'add_city' },
   { re: /قري|village|بلده/i, op: 'add_village' },
   { re: /غاب|شجر|forest/i, op: 'add_forest' },
-  { re: /حيوان|animal|بحيرات?|lake/i, op: 'add_animals' },
+  { re: /بحير|بحرات|lake/i, op: 'add_lake' },
+  { re: /حيوان|animal/i, op: 'add_animals' },
   { re: /طقس|عاصف|storm|مطر/i, op: 'weather_storm' },
   { re: /ليل|night/i, op: 'time_night' },
   { re: /نهار|شمس|day/i, op: 'time_day' },
@@ -695,13 +696,41 @@ export function planModification(world, prompt) {
   return { ops: [...new Set(ops)], text };
 }
 
+// Worlds created before the generator grew a layer (or hand-built ones) may be missing
+// whole collections. Every generated world carries all of them, so the modification
+// ops can rely on their presence — fill the gaps before editing instead of throwing.
+const WORLD_COLLECTIONS = ['regions', 'forests', 'rocks', 'buildings', 'roads', 'waterfalls', 'caves',
+  'pois', 'animals', 'interactables', 'quests', 'features'];
+
+export function normaliseWorld(world) {
+  const w = world && typeof world === 'object' ? world : {};
+  if (!Array.isArray(w.spawns) || !w.spawns.length) w.spawns = [{ x: 0, z: 0, facing: 0 }];
+  if (!w.terrain || typeof w.terrain !== 'object') {
+    w.terrain = { peaks: [], basins: [], rivers: [], baseHeight: 2, roughness: 1, octaves: 3, mountainAmplitude: 10 };
+  }
+  for (const key of ['peaks', 'basins', 'rivers', 'plateaus']) {
+    if (!Array.isArray(w.terrain[key])) w.terrain[key] = [];
+  }
+  for (const key of WORLD_COLLECTIONS) if (!Array.isArray(w[key])) w[key] = [];
+  if (!w.environment || typeof w.environment !== 'object') w.environment = { timeOfDay: 12 };
+  if (!w.water || typeof w.water !== 'object') {
+    w.water = { enabled: false, level: 0, color: '#2c74b8', depth: 6, waves: 0.4, foam: 0.3 };
+  }
+  if (!w.theme || typeof w.theme !== 'object') w.theme = {};
+  if (!w.stats || typeof w.stats !== 'object') w.stats = {};
+  if (!w.audio || typeof w.audio !== 'object') w.audio = { ambient: 'open_plain', music: 'exploration', footsteps: 'grass' };
+  if (!(w.side >= 200)) w.side = 400;
+  if (w.format !== WORLD_FORMAT) w.format = WORLD_FORMAT;
+  return w;
+}
+
 export function applyModification(world, prompt, detail = 'detailed', quality = 'high') {
   const { ops } = planModification(world, prompt);
   if (!ops.length) {
     // Unrecognised instruction: still attempt a safe generic enrichment, never a no-op lie.
     ops.push('add_forest');
   }
-  const next = JSON.parse(JSON.stringify(world));
+  const next = normaliseWorld(JSON.parse(JSON.stringify(world)));
   const seed = hashSeed(`${next.seed}:${prompt}:${next.version || 1}:${Date.now()}`);
   const rnd = mulberry32(seed);
   const half = next.side / 2;
@@ -777,6 +806,19 @@ export function applyModification(world, prompt, detail = 'detailed', quality = 
       next.environment.sunElevation = 58;
       next.environment.exposure = 1.0;
       changes.push('تحول الوقت إلى النهار');
+    } else if (op === 'add_lake') {
+      // a lake is a shallow basin plus surface water; the renderer reads both
+      const lx = R(rnd, -half * 0.6, half * 0.6), lz = R(rnd, -half * 0.6, half * 0.6);
+      const radius = round1(R(rnd, 40, 110));
+      next.terrain.basins.push({
+        x: round1(lx), z: round1(lz), radius, depth: round1(R(rnd, 3, 9)),
+        kind: 'lake', rim: round1(R(rnd, 4, 12)),
+      });
+      next.water.enabled = true;
+      if (!(next.water.level >= 0.5)) next.water.level = 0.5;
+      next.water.waves = next.water.waves || 0.25;
+      next.pois.push({ type: 'lake', x: round1(lx), z: round1(lz), name: 'بحيرة' });
+      changes.push(`أضيفت بحيرة بقطر ${Math.round(radius * 2)} م`);
     } else if (op === 'add_cave') {
       const c = {
         x: round1(R(rnd, -half * 0.75, half * 0.75)), z: round1(R(rnd, -half * 0.75, half * 0.75)),

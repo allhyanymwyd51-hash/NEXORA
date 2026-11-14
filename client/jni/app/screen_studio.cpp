@@ -207,8 +207,9 @@ void draw(float dt) {
                    true, canEdit, 13.5f, "sparkle")
             .clicked) {
       gEditing = true;
-      char body[420];
-      snprintf(body, sizeof body, "{\"mapId\":\"%s\",\"prompt\":\"%s\"}", m.id, gEditPrompt);
+      char body[900], esc[520];
+      escapeJson(gEditPrompt, esc, sizeof esc);  // free text: quotes would break the body
+      snprintf(body, sizeof body, "{\"mapId\":\"%s\",\"prompt\":\"%s\"}", m.id, esc);
       api.call(NET_AI_MODIFY, "POST", "/api/ai/modify", body);
     }
   } else {
@@ -248,8 +249,11 @@ void draw(float dt) {
                      gPassName[0] != 0 && !gEditing, 12.5f)
               .clicked) {
         gEditing = true;
-        char body[420];
-        snprintf(body, sizeof body, "{\"name\":\"%s\",\"description\":\"%s\",\"price\":%d}", gPassName, gPassDesc,
+        char body[700];
+        char nEs[200], dEs[340];
+        escapeJson(gPassName, nEs, sizeof nEs);
+        escapeJson(gPassDesc, dEs, sizeof dEs);
+        snprintf(body, sizeof body, "{\"name\":\"%s\",\"description\":\"%s\",\"price\":%d}", nEs, dEs,
                  gPassPrice);
         char path[80];
         snprintf(path, sizeof path, "/api/maps/%s/passes", m.id);

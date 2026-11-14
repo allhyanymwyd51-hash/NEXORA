@@ -357,3 +357,31 @@ test('notifications carry an unread count the bell badge can render', async () =
   const after = await api('/api/me/notifications', { token: laterToken });
   assert.equal(after.json.unread, 0, 'mark-all clears the badge');
 });
+
+// NEX AI edits: a sparse/hand-built world must not throw, and a lake request must
+// actually create water instead of silently falling back to a forest.
+test('ai modify handles sparse worlds and recognised edits', async () => {
+  const sparse = await api('/api/maps', {
+    method: 'POST', token: laterToken,
+    body: { name: 'Sparse Isle', gameType: 'open_world',
+      world: { format: 'nexora-world/1', side: 400, spawns: [{ x: 0, z: 0, facing: 0 }],
+        terrain: { peaks: [], basins: [], rivers: [], baseHeight: 2, roughness: 1, octaves: 3, mountainAmplitude: 10 },
+        buildings: [], quests: [], environment: { timeOfDay: 12 }, features: [], stats: {} } },
+  });
+  assert.equal(sparse.status, 201, sparse.text);
+  const mapIdLocal = sparse.json.map.id;
+
+  const lake = await api('/api/ai/modify', { method: 'POST', token: laterToken, body: { mapId: mapIdLocal, prompt: 'أضف بحيرة كبيرة في المنتصف' } });
+  assert.equal(lake.status, 200, lake.text);
+  assert.ok(lake.json.ops.includes('add_lake'));
+  assert.ok(lake.json.world.terrain.basins.length >= 1, 'a basin was carved');
+  assert.equal(lake.json.world.water.enabled, true, 'surface water is on');
+  assert.ok(lake.json.changes.length, 'the change is described back to the player');
+
+  const city = await api('/api/ai/modify', { method: 'POST', token: laterToken, body: { mapId: mapIdLocal, prompt: 'أضف مدينة فيها أبراج"عالية"' } });
+  assert.equal(city.status, 200, city.text);
+  assert.ok(city.json.world.buildings.length > 0);
+  const storms = await api('/api/ai/modify', { method: 'POST', token: laterToken, body: { mapId: mapIdLocal, prompt: 'اجعل الطقس عاصفة' } });
+  assert.equal(storms.status, 200);
+  assert.equal(storms.json.world.environment.weather, 'storm');
+});
