@@ -176,3 +176,28 @@ test('map list and detail expose what the client renders', async () => {
   assert.ok(detail.json.map.ownerDetails);
   assert.ok(Array.isArray(detail.json.map.passesList));
 });
+
+test('sort=players orders by live occupancy, not by recency', async () => {
+  // two more published maps; only one of them gets a live player
+  const mkMap = async (name) => {
+    const created = await api('/api/maps', { method: 'POST', token: host.token, body: { name, gameType: 'adventure' } });
+    assert.equal(created.status, 201);
+    await api(`/api/maps/${created.json.map.id}/publish`, { method: 'POST', token: host.token, body: {} });
+    return created.json.map.id;
+  };
+  const busy = await mkMap('Busy Isle');
+  await mkMap('Empty Isle');
+
+  const ws = await wsConnect();
+  await ws.wait('hello');
+  ws.send({ type: 'auth', token: guest.token });
+  await ws.wait('authed');
+  ws.send({ type: 'join_map', mapId: busy, x: 0, y: 0, z: 0, heading: 0 });
+  assert.ok(await ws.wait('room_state'));
+
+  const list = await api('/api/maps?sort=players&limit=5', { token: guest.token });
+  assert.equal(list.status, 200);
+  assert.equal(list.json.maps[0].id, busy, 'the occupied map comes first');
+  assert.equal(list.json.maps[0].players, 1);
+  ws.close();
+});

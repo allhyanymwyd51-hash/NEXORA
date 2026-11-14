@@ -94,13 +94,22 @@ getRoute('/api/maps', async (ctx) => {
   const params = [];
   if (q) { where += ' AND (m.name LIKE ? OR m.description LIKE ?)'; params.push(`%${q}%`, `%${q}%`); }
   if (type && GAME_TYPES.includes(type)) { where += ' AND m.game_type = ?'; params.push(type); }
-  const order = sort === 'visits' ? 'm.visits DESC'
-    : sort === 'likes' ? '(SELECT COUNT(*) FROM map_likes l WHERE l.map_id = m.id) DESC, m.published_at DESC'
-      : 'm.published_at DESC';
+  // "players" is live occupancy, which only exists in the realtime hub — take the
+  // candidate window ordered by visits, then order it by who is actually playing.
+  const liveSort = sort === 'players';
+  const order = liveSort ? 'm.visits DESC'
+    : sort === 'visits' ? 'm.visits DESC'
+      : sort === 'likes' ? '(SELECT COUNT(*) FROM map_likes l WHERE l.map_id = m.id) DESC, m.published_at DESC'
+        : 'm.published_at DESC';
   const rows = all(`SELECT ${PUBLIC_COLUMNS} FROM maps m WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`,
-    ...params, limit, offset);
+    ...params, liveSort ? Math.min(200, offset + limit) : limit, liveSort ? 0 : offset);
+  const cards = rows.map((r) => mapCard(r, ctx.user?.id));
+  if (liveSort) cards.sort((a, b) => b.players - a.players || b.visits - a.visits);
   const total = get(`SELECT COUNT(*) AS c FROM maps m WHERE ${where}`, ...params).c;
-  ctx.out(200, { ok: true, maps: rows.map((r) => mapCard(r, ctx.user?.id)), total, offset, limit });
+  ctx.out(200, {
+    ok: true, total, offset, limit,
+    maps: liveSort ? cards.slice(offset, offset + limit) : cards,
+  });
 });
 
 getRoute('/api/maps/mine', async (ctx) => {
