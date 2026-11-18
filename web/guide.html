@@ -1,0 +1,15 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>دليل زيرون</title><link rel="stylesheet" href="style.css"><style>main.guide{max-width:900px;margin:40px auto;padding:0 24px 60px}.guide h1{font-size:36px}.guide h2{margin-top:35px;color:#cbbaff}.guide p,.guide li{color:#b6b3c4;line-height:2}.guide pre{background:#171723;border:1px solid #323044;padding:18px;border-radius:8px;white-space:pre-wrap;direction:rtl}.guide a{color:#cbbaff}</style></head><body><header class="topbar"><a class="brand" href="index.html"><span class="brand-mark">Z</span><span><b>زيرون</b><small>ZAYRON STUDIO</small></span></a><a href="index.html#studio">← العودة للمحرر</a></header><main class="guide"><div class="overline">دليل البداية · نسخة تجريبية 0.1</div><h1>ابدأ رحلتك مع زيرون<span style="color:#a88cfc">.</span></h1><p>زيرون رؤية للغة برمجة عربية وأدوات تطوير متكاملة. النسخة الحالية نموذج أولي تجريبي يعمل داخل المتصفح، يتيح كتابة مجموعة محدودة من أوامر اللغة وتشغيلها محلياً. لا تمثل هذه النسخة الإصدار المستقر 1.0.</p><h2>١. أول برنامج</h2><p>اكتب الأمر في المحرر ثم اضغط «تشغيل الكود». النص بين علامتي اقتباس، ويمكن استخدام الفاصلة المنقوطة العربية أو الإنجليزية.</p><pre>اطبع("أهلاً بالعالم!")؛</pre><h2>٢. المتغيرات والحساب</h2><pre>متغير السعر = ١٠؛
+متغير الكمية = ٣؛
+اطبع("المجموع:", السعر * الكمية)؛</pre><p>تدعم النسخة الأعداد الصحيحة والعشرية والنصوص والقيم المنطقية و«فارغ». يمكن كتابة الأرقام العربية أو الإنجليزية، وتستخدم الأعداد العشرية النقطة الإنجليزية. استخدم + و- و* و/ و%، و( ) لترتيب العمليات.</p><h2>٣. الشروط والحلقات</h2><pre>متغير العدد = ١؛
+طالما (العدد &lt;= ٣) {
+  اطبع(العدد)؛
+  العدد = العدد + ١؛
+}
+إذا (العدد == ٤) {
+  اطبع("انتهينا")؛
+} وإلا {
+  اطبع("حاول مجدداً")؛
+}</pre><h2>٤. الدوال</h2><pre>دالة ضاعف(عدد) {
+  أرجع عدد * ٢؛
+}
+اطبع(ضاعف(٥))؛</pre><p>يمكن كتابة التعليقات بعد // أو #. توجد أسماء إنجليزية لبعض الكلمات، مثل let وif وelse وwhile وfn وreturn وprint. قارن القيم باستخدام == و!= و&lt; و&gt; و&lt;= و&gt;=، واجمع الشروط باستخدام و، أو، ليس.</p><h2>٥. ما الذي لم يُبنَ بعد؟</h2><p>محرك الألعاب، ومكتبات الذكاء الاصطناعي، والتطبيقات الأصلية المنشأة من كود زيرون، والمترجم إلى ملفات تنفيذية، والقوائم والكائنات ونظام الحزم ليست موجودة في هذا النموذج. حدود التنفيذ تمنع الحلقات غير المنتهية من تجميد الواجهة، لكنها ليست بديلاً عن عزل أمني كامل.</p><h2>٦. ملف التعريف الشامل</h2><p>يوجد ملف تعريف وخطة تقنية مفصلة ضمن المشروع باسم <code>docs/ZAYRON_GUIDE_AR.md</code>، يتناول الرؤية والقواعد والوضع الحالي ومراحل التطوير. <a class="full-guide" href="../docs/ZAYRON_GUIDE_AR.md" download>تحميل ملف التعريف الشامل ↓</a></p><p><a href="index.html#studio">ارجع للمحرر وجرّب ←</a></p></main><script>if(location.protocol === "file:") document.querySelector(".full-guide").hidden = true;</script></body></html>
