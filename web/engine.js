@@ -1,4 +1,4 @@
-/* Zayron 0.2: a small Saudi-inspired interpreter. No eval or network access. */
+/* Zayron experimental interpreter. No eval or network access. */
 (function (root) {
   'use strict';
   class ZayronError extends Error {
@@ -117,6 +117,7 @@
     const maxSteps = options.maxSteps || 30000;
     function tick(line) { if (++steps > maxSteps) throw new ZayronError('وقفنا التنفيذ لأنه تعدّى الحد؛ شيك على التكرار', line); }
     const format = value => value === null ? 'فاضي' : value === true ? 'صح' : value === false ? 'غلط' : String(value);
+    if (options.builtins) { for (const [name, fn] of Object.entries(options.builtins)) { if (typeof fn !== 'function') throw new ZayronError('الدالة المدمجة غير صالحة'); global.define(name, fn); } }
     function evaluate(node, env) {
       tick(node.line);
       switch (node.kind) {
@@ -148,7 +149,7 @@
         switch (statement.kind) {
           case 'declare': env.define(statement.name, evaluate(statement.value, env), statement.line); break;
           case 'assign': env.set(statement.name, evaluate(statement.value, env), statement.line); break;
-          case 'show': if (output.length >= 500) throw new ZayronError('وصلنا حد أسطر المخرجات', statement.line); output.push(statement.args.map(arg => format(evaluate(arg, env))).join(' ')); break;
+          case 'show': if (output.length >= 500) throw new ZayronError('وصلنا حد أسطر المخرجات', statement.line); { const line = statement.args.map(arg => format(evaluate(arg, env))).join(' '); output.push(line); if (options.onOutput) options.onOutput(line); } break;
           case 'expression': evaluate(statement.value, env); break;
           case 'if': result = execute(evaluate(statement.condition, env) ? statement.yes : statement.no, new Env(env)); if (result) return result; break;
           case 'while': while (evaluate(statement.condition, env)) { tick(statement.line); result = execute(statement.body, new Env(env)); if (result) return result; } break;
@@ -171,7 +172,7 @@
       }
       return null;
     }
-    execute(ast, global); return {output, steps};
+    execute(ast, global); return {output, steps, invokeFrame(...calls) { steps = 0; for (const call of calls) { if (call && typeof call.fn === 'function') call.fn(...(call.args || [])); } }};
   }
   const api = {run, parse, ZayronError};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
