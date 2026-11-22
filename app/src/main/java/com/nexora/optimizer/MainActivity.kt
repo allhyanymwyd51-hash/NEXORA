@@ -499,17 +499,6 @@ class MainActivity : Activity() {
         }
     }
 
-    /** الجزء النظامي من Sharpness Boost: كثافة عرض أعلى + تباين نصي + (أفضل جهد) وضع ألوان حيوي */
-    private fun applySystemSharpness() {
-        LogCenter.log("═══ Sharpness Boost — تطبيق الجزء النظامي ═══")
-        val density = ResolutionManager.bumpDensity(20)
-        val contrast = ShellExecutor.run("settings put secure high_text_contrast_enabled 1")
-        LogCenter.logResult("high_text_contrast_enabled", contrast)
-        val vivid = ShellExecutor.run("settings put system display_color_mode 1")
-        LogCenter.logResult("display_color_mode (vivid — إن دعمه الجهاز)", vivid)
-        LogCenter.log("ملاحظة: لاستعادة الكثافة الأصلية اضغط «استعادة الدقة الأصلية» (wm density reset)")
-    }
-
     private fun showConfigOutput(output: ConfigEngine.ConfigOutput, mode: ConfigEngine.TuneMode) {
         lastConfig = output
         tvOutputTitle.text = output.fileName
