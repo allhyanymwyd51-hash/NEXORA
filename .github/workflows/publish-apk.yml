@@ -1,0 +1,43 @@
+name: Publish preview APK
+
+on:
+  push:
+    branches: ['arena/9cc15e97-nexora']
+    paths: ['.github/workflows/publish-apk.yml']
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_ID: '45025013357'
+      TARGET_SHA: 'f6b1a68870cb237fe61d4582358896a9ef9d045d'
+      TAG: v1.0.0-preview
+    steps:
+      - name: Verify successful build and commit
+        run: |
+          set -euo pipefail
+          gh api "repos/$GH_REPO/actions/runs/$RUN_ID" --jq '[.conclusion, .head_sha, .name] | @tsv' > "$RUNNER_TEMP/run-info"
+          IFS=$'\t' read -r conclusion sha name < "$RUNNER_TEMP/run-info"
+          test "$conclusion" = success
+          test "$sha" = "$TARGET_SHA"
+          test "$name" = 'Build NEXORA APK'
+      - name: Download built APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: NEXORA-APK
+          path: dist
+          run-id: 45025013357
+          github-token: ${{ github.token }}
+      - name: Publish APK directly
+        run: |
+          set -euo pipefail
+          test -f dist/NEXORA-v1.0.0-release.apk
+          gh release create "$TAG" dist/NEXORA-v1.0.0-release.apk \
+            --target "$TARGET_SHA" --title 'NEXORA v1.0.0 preview' --prerelease \
+            --notes 'Preview build signed with a development key. See the README for limitations and setup.'
