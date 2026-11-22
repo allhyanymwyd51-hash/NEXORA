@@ -15,7 +15,7 @@ import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.LayoutInflater
 import android.view.View
-import android.view.animation.ValueAnimator
+import android.animation.ValueAnimator
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.LinearLayout

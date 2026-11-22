@@ -31,7 +31,15 @@ jobs:
           echo "$HOME/gradle-8.7/bin" >> "$GITHUB_PATH"
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace --no-daemon
+        run: |
+          set -o pipefail
+          gradle :app:assembleDebug --no-daemon 2>&1 | tee "$RUNNER_TEMP/gradle.log" || {
+            while IFS= read -r line; do
+              line=${line//%/%25}; line=${line//$'\r'/%0D}; line=${line//$'\n'/%0A}
+              echo "::error::$line"
+            done < <(tail -n 100 "$RUNNER_TEMP/gradle.log")
+            exit 1
+          }
 
       - name: Build release APK
         run: gradle :app:assembleRelease --stacktrace --no-daemon

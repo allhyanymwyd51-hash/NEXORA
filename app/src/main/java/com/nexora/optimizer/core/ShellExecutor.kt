@@ -146,7 +146,11 @@ object ShellExecutor {
         }
         return try {
             // يعمل بصلاحية shell (نفس صلاحيات adb shell) عند تشغيل Shizuku عبر ADB
-            val process: Process = Shizuku.newProcess(arrayOf("sh", "-c", command), null, null)
+            // API 13 keeps the transitional process API private; surface failure if unavailable.
+            val method = Shizuku::class.java.getDeclaredMethod(
+                "newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java
+            ).apply { isAccessible = true }
+            val process = method.invoke(null, arrayOf("sh", "-c", command), null, null) as Process
             capture(process, "shizuku", timeoutSec)
         } catch (t: Throwable) {
             ShellResult(false, -3, "فشل تنفيذ الأمر عبر Shizuku: ${t.message}", "shizuku")
