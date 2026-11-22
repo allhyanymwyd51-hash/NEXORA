@@ -81,19 +81,19 @@ object ResolutionManager {
     fun applyDownscale(context: Context, targetW: Int, targetH: Int, gamePkg: String?): Boolean {
         val p = prefs(context)
 
-        // احفظ الأصل مرة واحدة فقط (إذا ما فيه override محفوظ من قبل)
+        // Persist the pre-existing override before changing the display, so recovery is retryable.
         if (!p.getBoolean(KEY_OVERRIDE_ACTIVE, false)) {
             val info = queryScreenInfo()
-            if (info != null) {
-                p.edit()
-                    .putInt(KEY_ORIG_W, info.physicalW)
-                    .putInt(KEY_ORIG_H, info.physicalH)
-                    .putInt(KEY_ORIG_DENSITY, info.physicalDensity ?: -1)
-                    .apply()
-                LogCenter.log("حفظ الدقة الأصلية: ${info.physicalW}x${info.physicalH} @${info.physicalDensity ?: "?"}dpi")
-            } else {
-                LogCenter.log("تعذرت قراءة الدقة الأصلية قبل التطبيق — سيتم الاعتماد على wm size reset عند الاستعادة")
+            if (info == null) {
+                LogCenter.log("تعذرت قراءة إعدادات العرض؛ لن نغيّر الدقة دون نسخة للاستعادة")
+                return false
             }
+            if (!p.edit()
+                    .putInt(KEY_ORIG_W, info.overrideW ?: -1)
+                    .putInt(KEY_ORIG_H, info.overrideH ?: -1)
+                    .putBoolean(KEY_OVERRIDE_ACTIVE, true)
+                    .putString(KEY_GAME_PKG, gamePkg)
+                    .commit()) return false
         }
 
         val evenW = targetW - (targetW % 2)
@@ -111,12 +111,15 @@ object ResolutionManager {
 
     /** يستعيد الدقة والكثافة الأصلية — يعمل حتى لو فُقدت الـ prefs (يعتمد على reset) */
     fun restoreOriginal(context: Context): Boolean {
-        val sizeRes = ShellExecutor.run("wm size reset")
-        LogCenter.logResult("wm size reset", sizeRes)
-        val densityRes = ShellExecutor.run("wm density reset")
-        LogCenter.logResult("wm density reset", densityRes)
-        prefs(context).edit().remove(KEY_OVERRIDE_ACTIVE).remove(KEY_GAME_PKG).apply()
-        return sizeRes.success
+        val p = prefs(context)
+        if (!p.getBoolean(KEY_OVERRIDE_ACTIVE, false)) return true
+        val w = p.getInt(KEY_ORIG_W, -1)
+        val h = p.getInt(KEY_ORIG_H, -1)
+        val command = if (w > 0 && h > 0) "wm size ${w}x${h}" else "wm size reset"
+        val result = ShellExecutor.run(command)
+        LogCenter.logResult(command, result)
+        if (result.success) p.edit().remove(KEY_OVERRIDE_ACTIVE).remove(KEY_GAME_PKG).commit()
+        return result.success
     }
 
     /**
@@ -124,11 +127,11 @@ object ResolutionManager {
      */
     fun computeTarget(physicalW: Int, physicalH: Int, targetHeight: Int): Pair<Int, Int> {
         val portrait = physicalH >= physicalW
-        val aspect = if (portrait) physicalW.toDouble() / physicalH else physicalH.toDouble() / physicalW
-        val evenH = targetHeight - (targetHeight % 2)
-        var evenOther = (aspect * evenH).toInt()
-        evenOther -= evenOther % 2
-        return if (portrait) evenOther to evenH else evenH to evenOther
+        val shortSide = minOf(physicalW, physicalH)
+        val longSide = maxOf(physicalW, physicalH)
+        val targetShort = minOf(targetHeight, shortSide).coerceAtLeast(2) / 2 * 2
+        val targetLong = ((longSide.toDouble() * targetShort / shortSide).toInt() / 2 * 2).coerceAtLeast(2)
+        return if (portrait) targetShort to targetLong else targetLong to targetShort
     }
 
     /** رفع كثافة العرض قليلاً لتعويض نعومة الصورة بعد خفض الدقة (جزء من Sharpness Boost) */

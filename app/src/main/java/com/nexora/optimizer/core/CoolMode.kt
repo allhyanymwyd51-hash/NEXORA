@@ -31,14 +31,6 @@ object CoolMode {
         val report = StringBuilder()
         report.appendLine("═══════ Cool Mode — تقرير التفعيل ═══════")
 
-        // 1) إيقاف العمليات الخلفية كلها
-        val killAll = ShellExecutor.run("cmd activity kill-all")
-        LogCenter.logResult("cmd activity kill-all", killAll)
-        report.appendLine(
-            if (killAll.success) "✓ تم إيقاف جميع العمليات الخلفية غير الأساسية"
-            else "✗ تعذر إيقاف العمليات الخلفية (${killAll.output.take(120)})"
-        )
-
         // 2) Force-stop للتطبيقات الثقيلة المختارة
         var killed = 0
         for (pkg in packagesToKill) {
@@ -53,13 +45,9 @@ object CoolMode {
             }
         }
         report.appendLine("──────────────────────────────")
-        report.appendLine("النتيجة: $killed تطبيق ثقيل موقوف + العمليات الخلفية منظّفة.")
-        report.appendLine("العب الآن — الحرارة ستبقى منخفضة والفريمات ثابتة.")
+        report.appendLine("النتيجة: $killed تطبيق ثقيل موقوف من التطبيقات المحددة.")
+        report.appendLine("قد تختلف النتائج؛ لا يضمن هذا منع الاختناق الحراري أو ثبات الفريمات.")
 
-        if (killAll.exitCode == -4) {
-            report.appendLine()
-            report.appendLine("⚠ تحتاج صلاحية Root أو Shizuku ليعمل Cool Mode بكامل قوته.")
-        }
         return report.toString()
     }
 }

@@ -51,7 +51,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="العقل الذكي للصورة والأداء — يرندر بدقة أقل كالوضع DLSS Performance"
+                    android:text="أداة لضبط دقة العرض وإعدادات الألعاب — دون ضمان زيادة الفريمات"
                     android:textSize="11sp"
                     android:textColor="@color/nexora_text" />
             </LinearLayout>
@@ -197,7 +197,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:paddingTop="4dp"
-                android:text="يرندر الـ GPU بكسلات أقل بـ 40–60٪ — الفريمات تقفز وتنخفض الحرارة. الدقة الأصلية تعود تلقائياً أول ما تخرج من اللعبة."
+                android:text="قد يقل الحمل الرسومي حسب اللعبة. الاستعادة التلقائية تتطلب تشغيل اللعبة من التطبيق ومنح الوصول للاستخدام؛ تتوفر استعادة يدوية."
                 android:textSize="12sp"
                 android:textColor="@color/nexora_text_dim" />
 
@@ -242,7 +242,7 @@
                     android:background="@drawable/bg_choice_selector"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
-                    android:selected="true" />
+                    />
 
                 <View android:layout_width="6dp" android:layout_height="1dp" />
 
@@ -537,7 +537,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:paddingTop="4dp"
-                android:text="يوقف العمليات الخلفية الثقيلة قبل اللعب — الحرارة تنخفض فلا يصل المعالج لمرحلة الـ Throttling ولا تهبط الفريمات فجأة."
+                android:text="يوقف التطبيقات المحددة فقط؛ قد تتأثر إشعاراتها. لا يضمن منع ارتفاع الحرارة أو الاختناق الحراري."
                 android:textSize="12sp"
                 android:textColor="@color/nexora_text_dim" />
 

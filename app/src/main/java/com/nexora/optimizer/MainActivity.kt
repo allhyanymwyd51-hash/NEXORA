@@ -329,7 +329,7 @@ class MainActivity : Activity() {
             mainHandler.post {
                 if (active) {
                     btnToggleDownscale.text = "■ إيقاف وضع الأداء واستعادة الدقة"
-                    tvDownscaleStatus.text = "الحالة: وضع الأداء نشط — الدقة مخفّضة (تعود تلقائياً عند الخروج من اللعبة)"
+                    tvDownscaleStatus.text = "الحالة: وضع الأداء نشط — للاستعادة التلقائية شغّل اللعبة من التطبيق ومنح صلاحية الاستخدام"
                     tvDownscaleStatus.setTextColor(getColor(R.color.nexora_green))
                 } else {
                     btnToggleDownscale.text = "⚡ تفعيل وضع الأداء الآن"
@@ -390,7 +390,7 @@ class MainActivity : Activity() {
         tvAiVerdict.text = report.verdict
         tvAiVerdict.setTextColor(getColor(R.color.nexora_text))
         tvAiNotes.text = report.notes.joinToString("\n") { "• $it" }
-        btnApplyAi.text = "طبّق توصية AI — خفض الدقة إلى ~${report.recommendedHeight}p (+${report.expectedFpsGain}٪ فريمات متوقعة)"
+        btnApplyAi.text = "طبّق التوصية — خفض الدقة إلى ~${report.recommendedHeight}p"
         btnApplyAi.visibility = View.VISIBLE
         LogCenter.log("تحليل AI اكتمل — النتيجة ${report.score}/100 — التوصية ${report.recommendedHeight}p")
     }
@@ -462,7 +462,10 @@ class MainActivity : Activity() {
                 val target = selectedTargetHeight()
                 val (pw, ph) = currentPhysical()
                 val (w, h) = ResolutionManager.computeTarget(pw, ph, target)
-                ResolutionManager.applyDownscale(applicationContext, w, h, profile.pkg)
+                if (!ResolutionManager.applyDownscale(applicationContext, w, h, profile.pkg)) {
+                    mainHandler.post { toast("تعذر خفض الدقة؛ لم يتم تشغيل اللعبة. تحقق من الصلاحيات واستعد الدقة إن لزم."); refreshDownscaleUI() }
+                    return@execute
+                }
             }
             val usageGranted = GameWatcherService.hasUsageAccess(this)
             mainHandler.post {
@@ -470,16 +473,17 @@ class MainActivity : Activity() {
                     toast("فعّل «صلاحية مراقبة اللعبة» ليعيد NEXORA الدقة تلقائياً عند خروجك")
                 }
                 try {
-                    startActivity(intent)
                     val svc = Intent(this, GameWatcherService::class.java).apply {
                         putExtra(GameWatcherService.EXTRA_GAME_PKG, profile.pkg)
                         putExtra(GameWatcherService.EXTRA_GAME_NAME, profile.name)
                     }
                     startForegroundService(svc)
+                    startActivity(intent)
                     LogCenter.log("▶ تم إطلاق ${profile.name} مع وضع الأداء")
                     refreshDownscaleUI()
                 } catch (e: Exception) {
-                    toast("تعذر إطلاق ${profile.name}: ${e.message}")
+                    toast("تعذر إطلاق ${profile.name}: ${e.message} — جارٍ استعادة الدقة")
+                    doRestore("استعادة بعد فشل التشغيل")
                 }
             }
         }
@@ -488,9 +492,6 @@ class MainActivity : Activity() {
     private fun onGenerateConfig(profile: GameProfile, mode: ConfigEngine.TuneMode) {
         executor.execute {
             val output = ConfigEngine.generate(applicationContext, profile, mode)
-            if (mode == ConfigEngine.TuneMode.SHARPNESS) {
-                applySystemSharpness()
-            }
             mainHandler.post {
                 showConfigOutput(output, mode)
                 toast("تم توليد ${output.fileName}")
@@ -563,7 +564,7 @@ class MainActivity : Activity() {
             val cb = CheckBox(this).apply {
                 text = label
                 setTextColor(getColor(R.color.nexora_text))
-                isChecked = true
+                isChecked = false
                 setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12.5f)
                 buttonTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.nexora_cyan))
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -576,7 +577,15 @@ class MainActivity : Activity() {
 
     private fun onCoolMode() {
         val targets = coolCheckboxes.filterValues { it.isChecked }.keys.toList()
-        tvCoolResult.text = "جاري إيقاف العمليات الخلفية…"
+        if (targets.isEmpty()) { toast("اختر التطبيقات التي تريد إيقافها أولاً"); return }
+        AlertDialog.Builder(this).setTitle("إيقاف التطبيقات المحددة؟")
+            .setMessage("قد تتوقف إشعارات هذه التطبيقات حتى تفتحها مجدداً.")
+            .setNegativeButton("إلغاء", null)
+            .setPositiveButton("إيقاف") { _, _ -> runCoolMode(targets) }.show()
+    }
+
+    private fun runCoolMode(targets: List<String>) {
+        tvCoolResult.text = "جاري إيقاف التطبيقات المحددة…"
         executor.execute {
             val report = CoolMode.enable(targets)
             mainHandler.post {

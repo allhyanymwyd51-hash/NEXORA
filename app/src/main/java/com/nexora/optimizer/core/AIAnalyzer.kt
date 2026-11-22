@@ -121,9 +121,9 @@ object AIAnalyzer {
         val expectedFpsGain = (pixelsCut * 1.6).toInt().coerceIn(25, 75)
 
         val verdict = when {
-            score >= 80 -> "أداء ممتاز — ممتاز للألعاب الثقيلة بدقة كاملة مع DLSS Performance"
-            score >= 60 -> "أداء جيد — وضع الأداء سيعطيك قفزة واضحة في الفريمات"
-            score >= 40 -> "أداء متوسط — خفض الدقة إلزامي تقريباً لثبات الفريمات"
+            score >= 80 -> "تقييم تقريبي للجهاز — جرّب الدقة المناسبة للعبتك"
+            score >= 60 -> "تقييم تقريبي جيد — النتائج تختلف حسب اللعبة"
+            score >= 40 -> "تقييم تقريبي متوسط — جرّب خفض الدقة"
             else -> "أداء أساسي — استخدم 540p/720p مع Cool Mode وسدّة حرارة"
         }
 
@@ -132,8 +132,8 @@ object AIAnalyzer {
             add("المعالج: $gpuName")
             add("الرام: ${"%.1f".format(ramGb)} جيجابايت  •  التحديث: ${refresh.toInt()}Hz")
             add("الحرارة الآن: $thermalStatus")
-            add("التوصية: تفعيل خفض الدقة إلى ~${recommendedHeight}p (نسبة البكسلات ~$scalePercent%)")
-            add("المتوقع: زيادة ~+$expectedFpsGain% في متوسط الفريمات مع حرارة أقل")
+            add("التوصية: تفعيل خفض الدقة إلى ~${recommendedHeight}p")
+            add("لا يمكن تقدير الفريمات أو الحرارة دون قياس داخل اللعبة")
             add("لأفضل نتيجة اجمع بين: وضع الأداء + Sharpness Boost + Cool Mode")
         }
 

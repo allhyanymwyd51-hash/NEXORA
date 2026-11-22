@@ -68,7 +68,7 @@ class GameWatcherService : Service() {
     private val poll = object : Runnable {
         override fun run() {
             checkForeground()
-            handler.postDelayed(this, POLL_MS)
+            if (ResolutionManager.isOverrideActive(applicationContext)) handler.postDelayed(this, POLL_MS)
         }
     }
 
@@ -125,7 +125,7 @@ class GameWatcherService : Service() {
             )
             .build()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= 34) {
             startForeground(
                 Notifs.SESSION_NOTIFICATION_ID,
                 notification,
