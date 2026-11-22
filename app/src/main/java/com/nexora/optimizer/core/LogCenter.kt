@@ -9,7 +9,7 @@ import java.util.Locale
  */
 object LogCenter {
 
-    interface Listener {
+    fun interface Listener {
         fun onLogLine(line: String)
     }
 
