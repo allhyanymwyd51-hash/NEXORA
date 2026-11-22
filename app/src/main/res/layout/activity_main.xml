@@ -1,0 +1,642 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/nexora_bg"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <!-- ══════════ Header ══════════ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingTop="10dp"
+            android:paddingBottom="6dp">
+
+            <ImageView
+                android:layout_width="58dp"
+                android:layout_height="58dp"
+                android:src="@drawable/ic_bolt"
+                android:contentDescription="NEXORA" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="NEXORA"
+                    android:textSize="30sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/nexora_cyan"
+                    android:letterSpacing="0.18" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="AI Resolution &amp; FPS Tuner"
+                    android:textSize="12sp"
+                    android:textColor="@color/nexora_text_dim" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="العقل الذكي للصورة والأداء — يرندر بدقة أقل كالوضع DLSS Performance"
+                    android:textSize="11sp"
+                    android:textColor="@color/nexora_text" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ══════════ حالة النظام ══════════ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="14dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="حالة النظام والصلاحيات"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/nexora_text" />
+
+                <Button
+                    android:id="@+id/btnRefreshStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="تحديث"
+                    android:textSize="12sp"
+                    android:textColor="@color/nexora_cyan"
+                    android:background="@drawable/bg_button_outline"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvStatusBackend"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:fontFamily="monospace"
+                android:textSize="11sp"
+                android:textColor="@color/nexora_cyan"
+                android:text="جاري فحص المحرك…" />
+
+            <TextView
+                android:id="@+id/tvInfoModel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textSize="12sp"
+                android:textColor="@color/nexora_text_dim"
+                android:text="الموديل: —" />
+
+            <TextView
+                android:id="@+id/tvInfoSoc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textSize="12sp"
+                android:textColor="@color/nexora_text_dim"
+                android:text="المعالج: —" />
+
+            <TextView
+                android:id="@+id/tvInfoRam"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textSize="12sp"
+                android:textColor="@color/nexora_text_dim"
+                android:text="الرام: —" />
+
+            <TextView
+                android:id="@+id/tvInfoDisplay"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textSize="12sp"
+                android:textColor="@color/nexora_text_dim"
+                android:text="العرض: —" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnGrantShizuku"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="44dp"
+                    android:text="منح إذن Shizuku"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/nexora_cyan"
+                    android:background="@drawable/bg_button_outline"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp" />
+
+                <View
+                    android:layout_width="8dp"
+                    android:layout_height="1dp" />
+
+                <Button
+                    android:id="@+id/btnUsageAccess"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="44dp"
+                    android:text="صلاحية مراقبة اللعبة"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/nexora_green"
+                    android:background="@drawable/bg_button_outline"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ══════════ المُخفّض الذكي للدقة ══════════ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="14dp"
+            android:layout_marginTop="10dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="المُخفّض الذكي للدقة — وضع الأداء"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/nexora_text" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="4dp"
+                android:text="يرندر الـ GPU بكسلات أقل بـ 40–60٪ — الفريمات تقفز وتنخفض الحرارة. الدقة الأصلية تعود تلقائياً أول ما تخرج من اللعبة."
+                android:textSize="12sp"
+                android:textColor="@color/nexora_text_dim" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="10dp"
+                android:text="الدقة المستهدفة:"
+                android:textSize="12sp"
+                android:textColor="@color/nexora_text" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnTarget540"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="46dp"
+                    android:text="540p"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/nexora_text"
+                    android:background="@drawable/bg_choice_selector"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp" />
+
+                <View android:layout_width="6dp" android:layout_height="1dp" />
+
+                <Button
+                    android:id="@+id/btnTarget720"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="46dp"
+                    android:text="720p"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/nexora_text"
+                    android:background="@drawable/bg_choice_selector"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:selected="true" />
+
+                <View android:layout_width="6dp" android:layout_height="1dp" />
+
+                <Button
+                    android:id="@+id/btnTarget900"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="46dp"
+                    android:text="900p"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/nexora_text"
+                    android:background="@drawable/bg_choice_selector"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp" />
+
+                <View android:layout_width="6dp" android:layout_height="1dp" />
+
+                <Button
+                    android:id="@+id/btnTargetAi"
+                    android:layout_width="0dp"
+                    android:layout_weight="1.15"
+                    android:layout_height="46dp"
+                    android:text="توصية AI"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/nexora_cyan"
+                    android:background="@drawable/bg_choice_selector"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnToggleDownscale"
+                android:layout_width="match_parent"
+                android:layout_height="58dp"
+                android:layout_marginTop="12dp"
+                android:text="⚡ تفعيل وضع الأداء الآن"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:textColor="@color/nexora_text"
+                android:background="@drawable/bg_button_primary"
+                android:insetTop="0dp"
+                android:insetBottom="0dp" />
+
+            <Button
+                android:id="@+id/btnRestore"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="8dp"
+                android:text="↩ استعادة الدقة الأصلية (wm size reset)"
+                android:textSize="12sp"
+                android:textColor="@color/nexora_text_dim"
+                android:background="@drawable/bg_button_outline"
+                android:insetTop="0dp"
+                android:insetBottom="0dp" />
+
+            <TextView
+                android:id="@+id/tvDownscaleStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="الحالة: الدقة الأصلية مفعّلة"
+                android:textSize="12sp"
+                android:textColor="@color/nexora_warn" />
+        </LinearLayout>
+
+        <!-- ══════════ تحليل الذكاء الاصطناعي ══════════ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="14dp"
+            android:layout_marginTop="10dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="تحليل NEXORA الذكي — On-device AI"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/nexora_text" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="4dp"
+                android:text="يقرأ الـ SoC والرام والشاشة والحرارة، ثم يرسم لك أفضل خطة فريمات — بدون إنترنت."
+                android:textSize="12sp"
+                android:textColor="@color/nexora_text_dim" />
+
+            <TextView
+                android:id="@+id/tvAiScore"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:text="—"
+                android:textSize="46sp"
+                android:textStyle="bold"
+                android:textColor="@color/nexora_cyan" />
+
+            <ProgressBar
+                android:id="@+id/pbAi"
+                android:layout_width="match_parent"
+                android:layout_height="12dp"
+                android:layout_marginTop="4dp"
+                android:max="100"
+                android:progress="0"
+                android:progressTint="@color/nexora_cyan"
+                style="?android:attr/progressBarStyleHorizontal" />
+
+            <TextView
+                android:id="@+id/tvAiVerdict"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center"
+                android:text="اضغط «حلّل جهازي» لنقرأ عتادك ونعطيك التوصية المثلى"
+                android:textSize="12sp"
+                android:textColor="@color/nexora_text_dim" />
+
+            <Button
+                android:id="@+id/btnAnalyzeAi"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="10dp"
+                android:text="🧠 حلّل جهازي بالذكاء الاصطناعي"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="@color/nexora_text"
+                android:background="@drawable/bg_button_primary"
+                android:insetTop="0dp"
+                android:insetBottom="0dp" />
+
+            <TextView
+                android:id="@+id/tvAiNotes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="monospace"
+                android:textSize="10.5sp"
+                android:textColor="@color/nexora_text_dim"
+                android:text="" />
+
+            <Button
+                android:id="@+id/btnApplyAi"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:visibility="gone"
+                android:text="طبّق توصية AI الآن"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/nexora_green"
+                android:background="@drawable/bg_button_outline"
+                android:insetTop="0dp"
+                android:insetBottom="0dp" />
+        </LinearLayout>
+
+        <!-- ══════════ مكتبة الألعاب ══════════ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="14dp"
+            android:layout_marginTop="10dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="مكتبة الألعاب والمحاكيات"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/nexora_text" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="4dp"
+                android:text="▶ تشغيل = تفعيل وضع الأداء + إطلاق اللعبة + مراقبة تلقائية\n⚡ ULTRA FPS = ملف إعدادات خفيف (فريمات قصوى)\n◐ SHARPNESS = ملف تعويض حدة الصورة"
+                android:textSize="11.5sp"
+                android:textColor="@color/nexora_text_dim" />
+
+            <LinearLayout
+                android:id="@+id/gamesContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical" />
+        </LinearLayout>
+
+        <!-- ══════════ الملف المولّد ══════════ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="14dp"
+            android:layout_marginTop="10dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvOutputTitle"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="الملف المولّد"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/nexora_text" />
+
+                <Button
+                    android:id="@+id/btnCopy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="نسخ"
+                    android:textSize="12sp"
+                    android:textColor="@color/nexora_cyan"
+                    android:background="@drawable/bg_button_outline"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp" />
+
+                <View android:layout_width="8dp" android:layout_height="1dp" />
+
+                <Button
+                    android:id="@+id/btnShare"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="مشاركة"
+                    android:textSize="12sp"
+                    android:textColor="@color/nexora_green"
+                    android:background="@drawable/bg_button_outline"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp" />
+            </LinearLayout>
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:maxHeight="190dp"
+                android:background="@drawable/bg_console">
+
+                <TextView
+                    android:id="@+id/tvConfigOutput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="10dp"
+                    android:fontFamily="monospace"
+                    android:textSize="10.5sp"
+                    android:textIsSelectable="true"
+                    android:textColor="@color/nexora_green"
+                    android:text="سيظهر هنا ملف الإعدادات بعد الضغط على ULTRA FPS أو SHARPNESS من أي لعبة…" />
+            </ScrollView>
+
+            <TextView
+                android:id="@+id/tvInstallNote"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textSize="11sp"
+                android:textColor="@color/nexora_warn"
+                android:text="" />
+        </LinearLayout>
+
+        <!-- ══════════ Cool Mode ══════════ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="14dp"
+            android:layout_marginTop="10dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Cool Mode — وضع التبريد"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/nexora_text" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="4dp"
+                android:text="يوقف العمليات الخلفية الثقيلة قبل اللعب — الحرارة تنخفض فلا يصل المعالج لمرحلة الـ Throttling ولا تهبط الفريمات فجأة."
+                android:textSize="12sp"
+                android:textColor="@color/nexora_text_dim" />
+
+            <LinearLayout
+                android:id="@+id/gridCoolApps"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical" />
+
+            <Button
+                android:id="@+id/btnCoolMode"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="10dp"
+                android:text="❄ فعّل Cool Mode الآن"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="@color/nexora_text"
+                android:background="@drawable/bg_button_danger"
+                android:insetTop="0dp"
+                android:insetBottom="0dp" />
+
+            <TextView
+                android:id="@+id/tvCoolResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:fontFamily="monospace"
+                android:textSize="10.5sp"
+                android:textColor="@color/nexora_text_dim"
+                android:text="" />
+        </LinearLayout>
+
+        <!-- ══════════ سجل العمليات ══════════ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="14dp"
+            android:layout_marginTop="10dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="سجل العمليات (Log)"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/nexora_text" />
+
+                <Button
+                    android:id="@+id/btnClearLog"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:text="مسح"
+                    android:textSize="12sp"
+                    android:textColor="@color/nexora_text_dim"
+                    android:background="@drawable/bg_button_outline"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp" />
+            </LinearLayout>
+
+            <ScrollView
+                android:id="@+id/logScroll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:maxHeight="180dp"
+                android:background="@drawable/bg_console">
+
+                <TextView
+                    android:id="@+id/tvLog"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="10dp"
+                    android:fontFamily="monospace"
+                    android:textSize="10sp"
+                    android:text=""
+                    android:textColor="@color/nexora_green" />
+            </ScrollView>
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:paddingTop="14dp"
+            android:paddingBottom="20dp"
+            android:text="NEXORA v1.0.0 — يعمل بـ Root / Shizuku / ADB\nإعدادات أداء مشروعة، وليست هاكر ولا تعديلاً على ملفات اللعبة"
+            android:textSize="10.5sp"
+            android:textColor="@color/nexora_text_dim" />
+
+    </LinearLayout>
+</ScrollView>

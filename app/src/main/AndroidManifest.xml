@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- صلاحيات NEXORA -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
+
+    <!-- حتى يستطيع التطبيق معرفة هل الألعاب مثبتة أو لا (Android 11+) -->
+    <queries>
+        <package android:name="com.roblox.client" />
+        <package android:name="com.rockstargames.gtasa" />
+        <package android:name="com.rockstargames.gtavc" />
+        <package android:name="com.rockstargames.gta3" />
+        <package android:name="com.tencent.ig" />
+        <package android:name="com.activision.callofduty.shooter" />
+        <package android:name="com.miHoYo.GenshinImpact" />
+        <package android:name="com.mobile.legends" />
+        <package android:name="com.dts.freefireth" />
+        <package android:name="jp.konami.pesam" />
+        <package android:name="com.mojang.minecraftpe" />
+        <package android:name="com.winlator" />
+        <package android:name="com.retroarch" />
+        <package android:name="org.dolphinemu.dolphinemu" />
+    </queries>
+
+    <application
+        android:label="NEXORA"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@style/Theme.NEXORA"
+        android:supportsRtl="true"
+        android:allowBackup="false"
+        android:hardwareAccelerated="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- مراقبة خروج اللعبة واستعادة الدقة تلقائياً -->
+        <service
+            android:name=".service.GameWatcherService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="game_session_monitor" />
+        </service>
+
+        <!-- جسر Shizuku: بدون هذا الـ Provider لا تعمل صلاحيات Shizuku -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true" />
+    </application>
+</manifest>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="nexora_bg">#0B1020</color>
+    <color name="nexora_card">#131B31</color>
+    <color name="nexora_card_deep">#0F1628</color>
+    <color name="nexora_card_stroke">#22304F</color>
+    <color name="nexora_cyan">#22D3EE</color>
+    <color name="nexora_green">#34D399</color>
+    <color name="nexora_blue">#38BDF8</color>
+    <color name="nexora_text">#E8EEFF</color>
+    <color name="nexora_text_dim">#8CA0C8</color>
+    <color name="nexora_warn">#FBBF24</color>
+    <color name="nexora_danger">#F87171</color>
+</resources>
